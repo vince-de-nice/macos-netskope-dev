@@ -53,6 +53,8 @@ source ~/.zshrc
 ./install.sh --rollback
 ```
 
+Après installation, le résumé affiche une section **Actions pour prise en compte** (`source ~/.zshrc`, `./gradlew --stop`, etc.) adaptée aux stacks configurées. `./install.sh --status` reprend ces indications.
+
 ## Usage rapide (administrateur)
 
 ```bash

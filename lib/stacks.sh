@@ -319,6 +319,93 @@ rollback_configured_stacks() {
     fi
 }
 
+stack_needs_shell_reload() {
+    case "$1" in
+        shell|dart|node|python|ruby|curl|aws) return 0 ;;
+        *) return 1
+    esac
+}
+
+get_configured_stacks_from_manifest() {
+    local stack configured
+    CONFIGURED_STACKS_FROM_MANIFEST=()
+    for stack in "${ALL_STACKS[@]}"; do
+        configured="$(load_manifest_value "stack_${stack}" 2>/dev/null || true)"
+        [[ "$configured" == "configured" ]] && CONFIGURED_STACKS_FROM_MANIFEST+=("$stack")
+    done
+}
+
+print_post_install_actions() {
+    local -a stacks=("$@")
+    local stack step=1
+    local need_shell=false need_gradle=false need_simulator=false
+    local has_actions=false
+
+    for stack in "${stacks[@]}"; do
+        case "$stack" in
+            gradle) need_gradle=true ;;
+            simulator) need_simulator=true ;;
+        esac
+        stack_needs_shell_reload "$stack" && need_shell=true
+    done
+
+    [[ "$SHELL_BLOCK_WRITTEN" == true ]] && need_shell=true
+
+    ((${#stacks[@]} > 0)) || return 0
+
+    echo "Actions pour prise en compte :"
+
+    if [[ "$need_shell" == true ]]; then
+        detect_shell_profile
+        echo "  ${step}. Recharger le profil shell (variables Dart, npm, curl, etc.) :"
+        echo "       source $SHELL_PROFILE_FILE"
+        echo "     Puis ouvrir un nouveau terminal ou redémarrer l'IDE (VS Code, Android Studio)."
+        report_line "Post-install: source $SHELL_PROFILE_FILE"
+        step=$((step + 1))
+        has_actions=true
+    fi
+
+    if [[ "$need_gradle" == true ]]; then
+        echo "  ${step}. Arrêter le Gradle daemon (truststore JVM) avant le prochain build Android :"
+        echo "       cd <votre_projet>/android && ./gradlew --stop"
+        echo "     Puis relancer : flutter run  ou  flutter build apk"
+        report_line "Post-install: ./gradlew --stop dans android/"
+        step=$((step + 1))
+        has_actions=true
+    fi
+
+    if [[ "$need_simulator" == true ]]; then
+        echo "  ${step}. Simulateur iOS : relancer l'app dans le simulateur (certificats root injectés)."
+        echo "     Si le simulateur n'était pas démarré : booter un simulateur puis"
+        echo "       ./install.sh --simulator --netskope --yes"
+        report_line "Post-install: relancer app simulateur ou re-run --simulator"
+        step=$((step + 1))
+        has_actions=true
+    fi
+
+    local has_git=false has_gcloud=false
+    for stack in "${stacks[@]}"; do
+        [[ "$stack" == "git" ]] && has_git=true
+        [[ "$stack" == "gcloud" ]] && has_gcloud=true
+    done
+
+    if [[ "$has_git" == true && "$need_shell" == false ]]; then
+        echo "  ${step}. Git : pris en compte au prochain git fetch / clone (aucun redémarrage)."
+        step=$((step + 1))
+        has_actions=true
+    fi
+
+    if [[ "$has_gcloud" == true ]]; then
+        echo "  ${step}. gcloud : configuration active immédiatement (gcloud config)."
+        has_actions=true
+    fi
+
+    if [[ "$has_actions" == false ]]; then
+        echo "  Aucune relance requise pour les stacks installées."
+    fi
+    echo
+}
+
 print_install_status() {
     local stack doc_file configured manifest_version
     local truststore_state bundle_state manifest_state
@@ -398,10 +485,15 @@ print_install_status() {
     if [[ "$healthy" == true && "$configured_count" -gt 0 ]]; then
         echo "Installation opérationnelle ($configured_count stack(s) configurée(s))."
         echo "Rollback  : ./install.sh --rollback"
+        echo
+        get_configured_stacks_from_manifest
+        print_post_install_actions "${CONFIGURED_STACKS_FROM_MANIFEST[@]}"
     elif [[ "$healthy" == false ]]; then
         echo "Relance recommandée : ./install.sh --all --netskope --yes"
+        echo
+    else
+        echo
     fi
-    echo
 }
 
 print_install_summary() {
@@ -433,12 +525,7 @@ print_install_summary() {
         echo
     fi
 
-    if [[ "$SHELL_BLOCK_WRITTEN" == true ]]; then
-        detect_shell_profile
-        echo "Rechargez votre shell :"
-        echo "  source $SHELL_PROFILE_FILE"
-        echo
-    fi
+    print_post_install_actions "${CONFIGURED_STACKS[@]}"
 
     echo "Rollback : ./install.sh --rollback"
     echo "État     : ./install.sh --status"

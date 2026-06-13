@@ -13,6 +13,7 @@
 - Stack `gcloud` / `simulator` : marquées configurées uniquement si action réelle effectuée
 - Rollback supprime aussi le cache `certs/`
 - Script MDM ADMIN.md utilise `sudo ./install.sh --as-user`
+- Résumé install et `--status` : section **Actions pour prise en compte** selon les stacks configurées
 - Option B admin (`sudo -u` seul) documentée comme limitée
 
 ### Removed

@@ -631,6 +631,9 @@ test_all_stacks_dry_run() {
     for stack in gradle shell dart git node python ruby curl gcloud aws; do
         assert_contains "stack $stack" "$output" "Configuration stack : $stack"
     done
+    assert_contains "actions post-install" "$output" "Actions pour prise en compte"
+    assert_contains "gradlew --stop" "$output" "gradlew --stop"
+    assert_contains "source profil shell" "$output" "source $TEST_ROOT/test-all.zshrc"
 }
 
 test_firebase_stacks_dry_run() {
