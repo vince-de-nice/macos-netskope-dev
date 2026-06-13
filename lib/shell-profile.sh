@@ -37,8 +37,57 @@ remove_profile_block_from_file() {
     ' "$input_file" > "$output_file"
 }
 
+extract_dart_vm_options_from_profile() {
+    local file="$1"
+    local line value in_block=false
+
+    [[ -f "$file" ]] || return 0
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "$line" == "$MARKER_BEGIN" ]]; then
+            in_block=true
+            continue
+        fi
+        if [[ "$line" == "$MARKER_END" ]]; then
+            in_block=false
+            continue
+        fi
+        [[ "$in_block" == true ]] && continue
+
+        if [[ "$line" =~ ^[[:space:]]*export[[:space:]]+DART_VM_OPTIONS= ]]; then
+            value="${line#export DART_VM_OPTIONS=}"
+            value="${value#\"}"
+            value="${value%\"}"
+            echo "$value"
+            return 0
+        fi
+    done < "$file"
+}
+
+merge_dart_vm_options() {
+    local existing="$1"
+    local -a tokens=()
+    local -a cleaned=()
+    local token result=""
+
+    if [[ -n "$existing" ]]; then
+        read -r -a tokens <<< "$existing"
+        for token in "${tokens[@]}"; do
+            [[ "$token" == --root-certs-file=* ]] && continue
+            cleaned+=("$token")
+        done
+    fi
+
+    cleaned+=("--root-certs-file=\${NETSKOPE_CA_BUNDLE}")
+
+    for token in "${cleaned[@]}"; do
+        result+="${token} "
+    done
+    echo "${result%" "}"
+}
+
 write_shell_profile_block() {
-    local temp_file bundle
+    local temp_file bundle existing_dart merged_dart
 
     detect_shell_profile
     bundle="$CA_BUNDLE_FILE"
@@ -46,12 +95,18 @@ write_shell_profile_block() {
     touch "$SHELL_PROFILE_FILE"
 
     if [[ -f "$SHELL_PROFILE_FILE" && -s "$SHELL_PROFILE_FILE" ]]; then
-        SHELL_PROFILE_BACKUP="${SHELL_PROFILE_FILE}.backup.$(date +%Y%m%d-%H%M%S)"
-        if [[ "$DRY_RUN" == false ]]; then
-            cp "$SHELL_PROFILE_FILE" "$SHELL_PROFILE_BACKUP"
-            write_manifest_entry "shell_profile_backup" "$SHELL_PROFILE_BACKUP"
+        if ! manifest_entry_exists "shell_profile_backup"; then
+            SHELL_PROFILE_BACKUP="${SHELL_PROFILE_FILE}.backup.$(date +%Y%m%d-%H%M%S)"
+            if [[ "$DRY_RUN" == false ]]; then
+                cp "$SHELL_PROFILE_FILE" "$SHELL_PROFILE_BACKUP"
+                write_manifest_entry "shell_profile_backup" "$SHELL_PROFILE_BACKUP"
+            fi
         fi
     fi
+
+    existing_dart="$(extract_dart_vm_options_from_profile "$SHELL_PROFILE_FILE")"
+    [[ -z "$existing_dart" && -n "${DART_VM_OPTIONS:-}" ]] && existing_dart="$DART_VM_OPTIONS"
+    merged_dart="$(merge_dart_vm_options "$existing_dart")"
 
     temp_file="$WORKDIR/shell-profile.new"
     remove_profile_block_from_file "$SHELL_PROFILE_FILE" "$temp_file"
@@ -63,7 +118,7 @@ write_shell_profile_block() {
         cat <<EOF
 # Bundle CA d'entreprise (Netskope) — gradle-corporate-truststore v${SCRIPT_VERSION}
 export NETSKOPE_CA_BUNDLE="${bundle}"
-export DART_VM_OPTIONS="--root-certs-file=\${NETSKOPE_CA_BUNDLE}"
+export DART_VM_OPTIONS="${merged_dart}"
 export NODE_EXTRA_CA_CERTS="\${NETSKOPE_CA_BUNDLE}"
 export SSL_CERT_FILE="\${NETSKOPE_CA_BUNDLE}"
 export REQUESTS_CA_BUNDLE="\${NETSKOPE_CA_BUNDLE}"

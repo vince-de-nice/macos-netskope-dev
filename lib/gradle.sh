@@ -11,19 +11,11 @@ merge_jvm_truststore_args() {
     local truststore="$2"
     local password="$3"
     local -a tokens=()
+    local -a cleaned=()
     local token
 
-    # Retire d'éventuels paramètres trustStore existants.
     if [[ -n "$existing_args" ]]; then
         read -r -a tokens <<< "$existing_args"
-    fi
-    local -a cleaned=()
-
-    if [[ -n "$existing_args" ]]; then
-        read -r -a tokens <<< "$existing_args"
-    fi
-
-    if ((${#tokens[@]} > 0)); then
         for token in "${tokens[@]}"; do
             [[ "$token" == -Djavax.net.ssl.trustStore=* ]] && continue
             [[ "$token" == -Djavax.net.ssl.trustStoreType=* ]] && continue
@@ -77,13 +69,17 @@ configure_gradle_properties() {
     touch "$GRADLE_PROPERTIES"
 
     if [[ -f "$GRADLE_PROPERTIES" && -s "$GRADLE_PROPERTIES" ]]; then
-        GRADLE_PROPERTIES_BACKUP="${GRADLE_PROPERTIES}.backup.$(date +%Y%m%d-%H%M%S)"
-        if [[ "$DRY_RUN" == false ]]; then
-            cp "$GRADLE_PROPERTIES" "$GRADLE_PROPERTIES_BACKUP"
-            write_manifest_entry "gradle_properties_backup" "$GRADLE_PROPERTIES_BACKUP"
-            log "Sauvegarde gradle.properties : $GRADLE_PROPERTIES_BACKUP"
+        if ! manifest_entry_exists "gradle_properties_backup"; then
+            GRADLE_PROPERTIES_BACKUP="${GRADLE_PROPERTIES}.backup.$(date +%Y%m%d-%H%M%S)"
+            if [[ "$DRY_RUN" == false ]]; then
+                cp "$GRADLE_PROPERTIES" "$GRADLE_PROPERTIES_BACKUP"
+                write_manifest_entry "gradle_properties_backup" "$GRADLE_PROPERTIES_BACKUP"
+                log "Sauvegarde gradle.properties : $GRADLE_PROPERTIES_BACKUP"
+            else
+                log "Dry-run : sauvegarde gradle.properties simulée"
+            fi
         else
-            log "Dry-run : sauvegarde gradle.properties simulée"
+            log "Sauvegarde gradle.properties existante conservée (install incrémentale)"
         fi
     fi
 

@@ -245,6 +245,8 @@ source_libs() {
     # shellcheck disable=SC1091
     source "$PROJECT_DIR/lib/common.sh"
     # shellcheck disable=SC1091
+    source "$PROJECT_DIR/lib/manifest.sh"
+    # shellcheck disable=SC1091
     source "$PROJECT_DIR/lib/gradle.sh"
     # shellcheck disable=SC1091
     source "$PROJECT_DIR/lib/rollback.sh"
@@ -515,9 +517,32 @@ test_tls_java_endpoints() {
 # Tests d'intégration (install.sh)
 # ---------------------------------------------------------------------------
 
+set_install_paths() {
+    INSTALL_HOME="$TEST_ROOT/install-home"
+    export GRADLE_DIR="$INSTALL_HOME/.gradle"
+    export TRUSTSTORE_DIR="$INSTALL_HOME/.gradle/corporate-truststore"
+    export TRUSTSTORE_FILE="$INSTALL_HOME/.gradle/corporate-truststore/corporate-truststore.p12"
+    export STATE_DIR="$INSTALL_HOME/.gradle/corporate-truststore/state"
+    export MANIFEST_FILE="$INSTALL_HOME/.gradle/corporate-truststore/state/manifest.json"
+    export REPORT_FILE="$INSTALL_HOME/.gradle/corporate-truststore/install-report.txt"
+    export CA_BUNDLE_FILE="$INSTALL_HOME/.gradle/corporate-truststore/nscacert_combined.pem"
+    export CERTS_CACHE_DIR="$INSTALL_HOME/.gradle/corporate-truststore/certs"
+    GRADLE_PROPERTIES="${GRADLE_DIR}/gradle.properties"
+}
+
 run_install() {
-    # shellcheck disable=SC1091
-    "$PROJECT_DIR/install.sh" "$@"
+    set_install_paths
+    mkdir -p "$STATE_DIR"
+    env \
+        GRADLE_DIR="$GRADLE_DIR" \
+        TRUSTSTORE_DIR="$TRUSTSTORE_DIR" \
+        TRUSTSTORE_FILE="$TRUSTSTORE_FILE" \
+        STATE_DIR="$STATE_DIR" \
+        MANIFEST_FILE="$MANIFEST_FILE" \
+        REPORT_FILE="$REPORT_FILE" \
+        CA_BUNDLE_FILE="$CA_BUNDLE_FILE" \
+        CERTS_CACHE_DIR="$CERTS_CACHE_DIR" \
+        "$PROJECT_DIR/install.sh" "$@"
 }
 
 test_list_netskope_without_mock() {
@@ -791,6 +816,7 @@ test_docs_gradle() {
 test_rollback_removes_block() {
     log_test "--rollback supprime le bloc généré"
     source_libs
+    set_install_paths
 
     mkdir -p "$GRADLE_DIR" "$STATE_DIR"
     cat > "$GRADLE_PROPERTIES" <<EOF
@@ -803,10 +829,9 @@ EOF
 
     cat > "$MANIFEST_FILE" <<EOF
 {
-  "version": "3.0.0",
-  "created_at": "2026-01-01T00:00:00Z",
+  "version": "4.1.0",
+  "updated_at": "2026-01-01T00:00:00Z",
   "truststore_file": "$TRUSTSTORE_FILE",
-  "store_password": "changeit",
   "entries": {}
 }
 EOF
@@ -823,6 +848,7 @@ EOF
 test_rollback_restores_backup() {
     log_test "--rollback restaure gradle.properties depuis sauvegarde"
     source_libs
+    set_install_paths
 
     mkdir -p "$GRADLE_DIR" "$STATE_DIR"
     local backup="$GRADLE_DIR/gradle.properties.backup.test"
@@ -842,10 +868,9 @@ EOF
 
     cat > "$MANIFEST_FILE" <<EOF
 {
-  "version": "3.0.0",
-  "created_at": "2026-01-01T00:00:00Z",
+  "version": "4.1.0",
+  "updated_at": "2026-01-01T00:00:00Z",
   "truststore_file": "$TRUSTSTORE_FILE",
-  "store_password": "changeit",
   "entries": {
     "gradle_properties_backup": "$backup"
   }
@@ -919,6 +944,98 @@ test_manifest_save_load() {
     assert_success "manifest créé" test -f "$MANIFEST_FILE"
     assert_eq "stack_gradle" "configured" "$(load_manifest_value stack_gradle)"
     assert_eq "truststore_file" "$TRUSTSTORE_FILE" "$(load_manifest_value truststore_file)"
+}
+
+test_manifest_merge_incremental() {
+    log_test "manifest merge (install incrémentale)"
+    source_all_libs
+    init_lib_workdir
+    DRY_RUN=false
+
+    write_manifest_entry "stack_gradle" "configured"
+    write_manifest_entry "ca_fingerprint" "abc123"
+    save_manifest
+
+    load_existing_manifest_entries
+    write_manifest_entry "stack_git" "configured"
+    save_manifest
+
+    assert_eq "gradle conservé" "configured" "$(load_manifest_value stack_gradle)"
+    assert_eq "git ajouté" "configured" "$(load_manifest_value stack_git)"
+    assert_eq "fingerprint conservé" "abc123" "$(load_manifest_value ca_fingerprint)"
+}
+
+test_merge_dart_vm_options() {
+    log_test "merge_dart_vm_options"
+    source_all_libs
+
+    local result
+    result="$(merge_dart_vm_options "--enable-experiment=patterns")"
+    assert_contains "conserve options existantes" "$result" "--enable-experiment=patterns"
+    assert_contains "ajoute root-certs-file" "$result" "--root-certs-file=\${NETSKOPE_CA_BUNDLE}"
+
+    result="$(merge_dart_vm_options "--root-certs-file=/old.pem --enable-experiment=foo")"
+    assert_contains "remplace ancien root-certs" "$result" "--root-certs-file=\${NETSKOPE_CA_BUNDLE}"
+    [[ "$result" != *"/old.pem"* ]] && log_pass "supprime ancien root-certs-file" || log_fail "supprime ancien root-certs-file"
+}
+
+test_ca_bundle_reuse_fingerprint() {
+    log_test "ca_bundle_is_current (réutilisation bundle)"
+    source_all_libs
+    init_lib_workdir
+    DRY_RUN=false
+
+    mkdir -p "$CERTS_CACHE_DIR" "$TRUSTSTORE_DIR"
+    create_mock_pem "$CA_BUNDLE_FILE" "Netskope Root CA"
+
+    local fp
+    fp="$(compute_ca_bundle_fingerprint)"
+    write_manifest_entry "ca_fingerprint" "$fp"
+    save_manifest
+
+    load_existing_manifest_entries
+    assert_success "bundle considéré à jour" ca_bundle_is_current
+}
+
+test_write_manifest_entry_updates() {
+    log_test "write_manifest_entry (mise à jour clé existante)"
+    source_all_libs
+    init_lib_workdir
+    DRY_RUN=false
+
+    write_manifest_entry "stack_gradle" "configured"
+    write_manifest_entry "stack_gradle" "updated"
+    save_manifest
+
+    assert_eq "valeur mise à jour" "updated" "$(load_manifest_value stack_gradle)"
+}
+
+test_admin_preparse_install_flags() {
+    log_test "preparse_install_flags (admin export)"
+    source_all_libs
+
+    preparse_install_flags --as-user jdupont --all --netskope --dry-run --yes
+    assert_eq "mode netskope" "netskope" "$ADMIN_INSTALL_MODE"
+    assert_eq "dry-run détecté" "true" "$ADMIN_DRY_RUN"
+
+    preparse_install_flags --rollback
+    assert_failure "rollback sans export" admin_install_requires_cert_export
+}
+
+test_manifest_no_store_password() {
+    log_test "manifest sans store_password en clair"
+    source_all_libs
+    init_lib_workdir
+    DRY_RUN=false
+
+    write_manifest_entry "stack_gradle" "configured"
+    save_manifest
+
+    if grep -q 'store_password' "$MANIFEST_FILE" 2>/dev/null; then
+        log_fail "store_password ne doit pas être dans le manifest"
+    else
+        log_pass "store_password absent du manifest"
+    fi
 }
 
 test_sanitize_netskope_variants() {
@@ -1103,6 +1220,18 @@ main() {
     test_tls_java_endpoints
     echo
     test_manifest_save_load
+    echo
+    test_manifest_merge_incremental
+    echo
+    test_write_manifest_entry_updates
+    echo
+    test_manifest_no_store_password
+    echo
+    test_merge_dart_vm_options
+    echo
+    test_ca_bundle_reuse_fingerprint
+    echo
+    test_admin_preparse_install_flags
     echo
     test_load_manifest_missing
     echo

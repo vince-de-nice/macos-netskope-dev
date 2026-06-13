@@ -90,7 +90,20 @@ Détails MDM, pièges (`sudo` sans `--as-user`), dépannage : **[ADMIN.md](ADMIN
 | `~/.gradle/corporate-truststore/nscacert_combined.pem` | Bundle CA pour CLI |
 | `~/.gradle/gradle.properties` | JVM args Gradle |
 | `~/.zshrc` (bloc marqué) | Variables d'environnement |
-| `~/.gradle/corporate-truststore/state/manifest.json` | État pour rollback |
+| `~/.gradle/corporate-truststore/state/manifest.json` | État pour rollback (fusionné à chaque stack) |
+
+## Mot de passe truststore
+
+Par défaut : `changeit` (truststore PKCS12 local, non sensible).
+
+Alternative recommandée :
+
+```bash
+export GCT_STORE_PASSWORD="votre-mot-de-passe"
+./install.sh --all --netskope --yes
+```
+
+Le mot de passe n'est **pas** stocké dans le manifest (uniquement dans `gradle.properties`).
 
 ## Références
 
@@ -107,7 +120,7 @@ Sans Netskope installé (certificats mock injectés temporairement dans le Keych
 ./test/run-tests.sh --verbose
 ```
 
-Couverture : syntaxe bash, **shellcheck** (`.shellcheckrc`), unitaires (admin, gradle, shell, bundle PEM, manifest), truststore **keytool réel**, TLS Java, dry-run `--all` / Firebase, **E2E réel Gradle** (si sudo sans mot de passe), rollback complet, garde anti-root.
+Couverture : syntaxe bash, **shellcheck** (`.shellcheckrc`), unitaires (admin, gradle, shell, bundle PEM, manifest merge), truststore **keytool réel**, TLS Java, dry-run `--all` / Firebase, **E2E réel Gradle** (si sudo sans mot de passe), rollback complet, garde anti-root, installations incrémentales.
 
 ```bash
 # shellcheck manuel (depuis la racine du projet)

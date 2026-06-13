@@ -22,6 +22,7 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 source "$SCRIPT_DIR/lib/common.sh"
+source "$SCRIPT_DIR/lib/manifest.sh"
 source "$SCRIPT_DIR/lib/admin.sh"
 source "$SCRIPT_DIR/lib/keychain.sh"
 source "$SCRIPT_DIR/lib/certificate.sh"
@@ -33,7 +34,7 @@ source "$SCRIPT_DIR/lib/tls-verify.sh"
 source "$SCRIPT_DIR/lib/stacks.sh"
 source "$SCRIPT_DIR/lib/rollback.sh"
 
-STORE_PASSWORD="$DEFAULT_STORE_PASSWORD"
+STORE_PASSWORD="${GCT_STORE_PASSWORD:-${TRUSTSTORE_PASSWORD:-$DEFAULT_STORE_PASSWORD}}"
 MANIFEST_ENTRIES=()
 
 MODE=""
@@ -121,6 +122,7 @@ Autres options :
   --tls-host H:PORT   Hôte pour --discover-tls
   --rollback          Restaure la configuration précédente
   --password PASS     Mot de passe truststore PKCS12 (défaut: changeit)
+                        Alternative : variable GCT_STORE_PASSWORD
   --skip-verify       Ignore les tests de connectivité
   --verbose           Logs détaillés
   --dry-run           Simulation
@@ -316,12 +318,35 @@ needs_gradle_stack() {
 }
 
 needs_certificate_export() {
-    needs_gradle_stack && return 0
-    local s
-    for s in "${SELECTED_STACKS[@]}"; do
-        [[ "$s" != "gradle" ]] && return 0
-    done
-    return 1
+    if [[ "${GCT_CERTS_EXPORTED:-}" == "1" ]]; then
+        return 1
+    fi
+
+    if ca_bundle_is_current; then
+        return 1
+    fi
+
+    if [[ -f "$CA_BUNDLE_FILE" && -s "$CA_BUNDLE_FILE" ]] && ! needs_gradle_stack; then
+        return 1
+    fi
+
+    return 0
+}
+
+resolve_certificate_material() {
+    if needs_certificate_export; then
+        prepare_certificates
+        return 0
+    fi
+
+    if load_exported_certs_from_cache; then
+        log "Certificats chargés depuis le cache : $CERTS_CACHE_DIR"
+    elif [[ -f "$CA_BUNDLE_FILE" && -s "$CA_BUNDLE_FILE" ]]; then
+        log "Bundle CA existant réutilisé : $CA_BUNDLE_FILE"
+        prepare_exported_certs_for_stacks
+    else
+        die "Bundle CA absent. Relancez avec --netskope pour exporter les certificats."
+    fi
 }
 
 run_install() {
@@ -330,6 +355,7 @@ run_install() {
     init_workdir
     reset_report
     ensure_dirs
+    load_existing_manifest_entries
 
     CERT_EXPORT_DIR="$WORKDIR/certs"
     mkdir -p "$CERT_EXPORT_DIR"
@@ -347,13 +373,7 @@ run_install() {
         probe_tls_hosts_for_report
     fi
 
-    if needs_certificate_export; then
-        prepare_certificates
-    elif [[ -f "$CA_BUNDLE_FILE" ]]; then
-        log "Bundle CA existant réutilisé : $CA_BUNDLE_FILE"
-    else
-        die "Bundle CA absent. Relancez avec --netskope pour exporter les certificats."
-    fi
+    resolve_certificate_material
 
     if [[ "$AUTO_ROLLBACK" == true && "$DRY_RUN" == false ]]; then
         begin_install_transaction

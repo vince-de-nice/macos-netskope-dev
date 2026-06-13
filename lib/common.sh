@@ -3,7 +3,7 @@
 #
 # Fonctions communes : logging, erreurs, privilèges, chemins, état.
 
-: "${SCRIPT_VERSION:=4.0.0}"
+: "${SCRIPT_VERSION:=4.1.0}"
 : "${SCRIPT_DIR:=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
 DEFAULT_STORE_PASSWORD="changeit"
@@ -133,41 +133,4 @@ json_escape() {
     printf '%s' "$s"
 }
 
-write_manifest_entry() {
-    local key="$1"
-    local value="$2"
-    MANIFEST_ENTRIES+=("$(json_escape "$key")|$(json_escape "$value")")
-}
-
-save_manifest() {
-    local entry key value
-    ensure_dirs
-    {
-        echo "{"
-        echo "  \"version\": \"$SCRIPT_VERSION\","
-        echo "  \"created_at\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\","
-        echo "  \"truststore_file\": \"$(json_escape "$TRUSTSTORE_FILE")\","
-        echo "  \"store_password\": \"$(json_escape "${STORE_PASSWORD:-$DEFAULT_STORE_PASSWORD}")\","
-        echo "  \"entries\": {"
-        local first=true
-        for entry in "${MANIFEST_ENTRIES[@]:-}"; do
-            key="${entry%%|*}"
-            value="${entry#*|}"
-            if [[ "$first" == true ]]; then
-                first=false
-            else
-                echo ","
-            fi
-            printf '    "%s": "%s"' "$key" "$value"
-        done
-        echo
-        echo "  }"
-        echo "}"
-    } > "$MANIFEST_FILE"
-}
-
-load_manifest_value() {
-    local key="$1"
-    [[ -f "$MANIFEST_FILE" ]] || return 1
-    sed -n "s/^[[:space:]]*\"${key}\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" "$MANIFEST_FILE" | head -1
-}
+# Manifest : voir lib/manifest.sh (write_manifest_entry, save_manifest, load_manifest_value).

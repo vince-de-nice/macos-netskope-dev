@@ -42,8 +42,23 @@ Configure la JVM utilisée par **Gradle** pour faire confiance à la CA Netskope
 
 ```bash
 ./install.sh --gradle --netskope --verbose
+cd mon_projet_flutter/android && ./gradlew --stop
 cd mon_projet_flutter/android && ./gradlew dependencies --refresh-dependencies
 ```
+
+> Après une installation ou mise à jour, arrêtez le **Gradle daemon** (`./gradlew --stop`) pour que les nouveaux `org.gradle.jvmargs` (truststore PKCS12) soient pris en compte.
+
+## Installations incrémentales
+
+Vous pouvez ajouter des stacks sans tout réinstaller :
+
+```bash
+./install.sh --all --netskope --yes      # première fois
+./install.sh --simulator --netskope --yes  # ajout simulateur
+./install.sh --status                      # toutes les stacks restent visibles
+```
+
+Le manifest fusionne l'état de chaque stack. Le `--rollback` restaure **toute** la configuration enregistrée.
 
 ## Non couvert par cette stack
 

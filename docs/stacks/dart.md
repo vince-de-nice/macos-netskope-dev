@@ -48,6 +48,7 @@ flutter pub get -v
 ## Limites connues
 
 - Flutter **n'honore pas toujours** `DART_VM_OPTIONS` sur toutes les plateformes/versions
+- Le script **fusionne** vos `DART_VM_OPTIONS` existants (ex. `--enable-experiment=…`) avec `--root-certs-file`
 - Contournement IT : bypass SSL pour `*.pub.dev`, `storage.googleapis.com`
 
 ## Nécessaire si…

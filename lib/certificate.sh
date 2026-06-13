@@ -226,7 +226,7 @@ create_or_refresh_truststore() {
         report_line "Truststore initialized from: $base_cacerts"
     else
         log "Truststore existant : $TRUSTSTORE_FILE"
-        if [[ "$DRY_RUN" == false ]]; then
+        if [[ "$DRY_RUN" == false ]] && ! manifest_entry_exists "truststore_backup"; then
             backup_file="${TRUSTSTORE_FILE}.backup.$(date +%Y%m%d-%H%M%S)"
             cp "$TRUSTSTORE_FILE" "$backup_file"
             write_manifest_entry "truststore_backup" "$backup_file"

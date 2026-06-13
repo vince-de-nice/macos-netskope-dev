@@ -60,7 +60,11 @@ cd /chemin/vers/gradle-corporate-truststore
 sudo ./install.sh --as-user jdupont --all --netskope --yes
 ```
 
-Le script se ré-exécute automatiquement avec l'identité `jdupont` et écrit dans `/Users/jdupont/`.
+Le script :
+1. **Exporte les CA Netskope en root** (accès Keychain système — privilèges admin)
+2. **Se ré-exécute** avec l'identité `jdupont` pour configurer son home (`/Users/jdupont/`)
+
+> Le développeur **n'a pas besoin** de droits sudo pour la phase de configuration. Seul l'admin doit être privilégié pour l'export Keychain.
 
 ### Option B : `sudo -u` explicite
 
@@ -157,6 +161,8 @@ Détail par stack : [README.md](README.md) et `./install.sh --docs <stack>`.
 | `--list-netskope` vide | Netskope absent ou CA non déployée | Vérifier client Netskope / IT |
 | Gradle OK, `flutter pub get` échoue | Stack `--dart` absente | `./install.sh --dart --netskope` |
 | Simulateur iOS SSL -1200 | Stack `--simulator` non faite | Dev démarre simulateur, relance `--simulator` |
+| Gradle ne prend pas le truststore | Daemon Gradle actif | `cd android && ./gradlew --stop`, relancer le build |
+| `--rollback` après install partielle | Comportement corrigé en v4.1 (manifest fusionné) | Mettre à jour le script si version < 4.1 |
 
 Rapport d'installation : `~/.gradle/corporate-truststore/install-report.txt`
 

@@ -61,7 +61,12 @@ mark_stack_configured() {
 }
 
 configure_stack_gradle() {
-    import_all_exported_certificates
+    if ca_bundle_is_current && [[ -f "$TRUSTSTORE_FILE" ]]; then
+        prepare_exported_certs_for_stacks || true
+        log "Truststore à jour — réimport ignoré"
+    else
+        import_all_exported_certificates
+    fi
     configure_gradle_properties
     mark_stack_configured "gradle"
 }
@@ -171,6 +176,7 @@ configure_stack_simulator() {
     local entry pem_file label booted
 
     ensure_ca_bundle_exists
+    prepare_exported_certs_for_stacks
 
     if ! command -v xcrun >/dev/null 2>&1; then
         warn "Xcode/xcrun absent — stack simulator ignorée."
