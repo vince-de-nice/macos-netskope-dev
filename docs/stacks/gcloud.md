@@ -26,7 +26,7 @@ Configure `gcloud` pour faire confiance à la CA Netskope.
 ## Ce que le script configure
 
 ```bash
-gcloud config set core/custom_ca_certs_file ~/.gradle/corporate-truststore/nscacert_combined.pem
+gcloud config set core/custom_ca_certs_file ~/.gradle/macos-netskope-dev/nscacert_combined.pem
 ```
 
 ## Vérification manuelle

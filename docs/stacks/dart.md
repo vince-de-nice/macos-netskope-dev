@@ -31,7 +31,7 @@ Configure **Dart VM** pour accepter la CA Netskope lors des téléchargements HT
 
 ## Ce que le script configure
 
-- Bundle PEM : `~/.gradle/corporate-truststore/nscacert_combined.pem`
+- Bundle PEM : `~/.gradle/macos-netskope-dev/nscacert_combined.pem`
 - Variable dans `~/.zshrc` :
   ```bash
   export DART_VM_OPTIONS="--root-certs-file=${NETSKOPE_CA_BUNDLE}"
@@ -41,7 +41,7 @@ Configure **Dart VM** pour accepter la CA Netskope lors des téléchargements HT
 
 ```bash
 source ~/.zshrc
-DART_VM_OPTIONS="--root-certs-file=$HOME/.gradle/corporate-truststore/nscacert_combined.pem" dart pub get
+DART_VM_OPTIONS="--root-certs-file=$HOME/.gradle/macos-netskope-dev/nscacert_combined.pem" dart pub get
 flutter pub get -v
 ```
 

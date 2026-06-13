@@ -33,7 +33,7 @@ Configure `SSL_CERT_FILE` pour **Ruby** et **CocoaPods** (`pod install`).
 ## Vérification manuelle
 
 ```bash
-cd ios && SSL_CERT_FILE=$HOME/.gradle/corporate-truststore/nscacert_combined.pem pod install
+cd ios && SSL_CERT_FILE=$HOME/.gradle/macos-netskope-dev/nscacert_combined.pem pod install
 ```
 
 ## Prérequis souvent nécessaires

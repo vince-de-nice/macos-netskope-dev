@@ -109,7 +109,7 @@ write_shell_profile_block() {
         [[ -s "$temp_file" ]] && echo
         echo "$MARKER_BEGIN"
         cat <<EOF
-# Bundle CA d'entreprise (Netskope) — gradle-corporate-truststore v${SCRIPT_VERSION}
+# Bundle CA d'entreprise (Netskope) — macos-netskope-dev v${SCRIPT_VERSION}
 export NETSKOPE_CA_BUNDLE="${bundle}"
 export DART_VM_OPTIONS="${merged_dart}"
 export NODE_EXTRA_CA_CERTS="\${NETSKOPE_CA_BUNDLE}"

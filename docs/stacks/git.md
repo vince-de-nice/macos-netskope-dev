@@ -30,7 +30,7 @@ Configure Git pour utiliser le bundle CA Netskope lors des opérations **HTTPS**
 ## Ce que le script configure
 
 ```bash
-git config --global http.sslCAInfo ~/.gradle/corporate-truststore/nscacert_combined.pem
+git config --global http.sslCAInfo ~/.gradle/macos-netskope-dev/nscacert_combined.pem
 ```
 
 ## Vérification manuelle

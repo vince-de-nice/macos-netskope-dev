@@ -34,7 +34,7 @@ export CURL_CA_BUNDLE="${NETSKOPE_CA_BUNDLE}"
 ## Vérification manuelle
 
 ```bash
-CURL_CA_BUNDLE=$HOME/.gradle/corporate-truststore/nscacert_combined.pem curl -I https://pub.dev
+CURL_CA_BUNDLE=$HOME/.gradle/macos-netskope-dev/nscacert_combined.pem curl -I https://pub.dev
 brew update
 ```
 

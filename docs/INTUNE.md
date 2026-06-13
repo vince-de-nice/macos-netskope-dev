@@ -1,4 +1,4 @@
-# Guide Microsoft Intune — gradle-corporate-truststore
+# Guide Microsoft Intune — macos-netskope-dev
 
 Déploiement sur postes macOS gérés par **Microsoft Intune** (Endpoint Manager) pour développeurs Flutter/Android derrière **Netskope**.
 
@@ -8,11 +8,27 @@ Déploiement sur postes macOS gérés par **Microsoft Intune** (Endpoint Manager
 |-----------|--------|
 | Intune | Gestion des appareils macOS activée |
 | Netskope | Client déployé **avant** ce package (CA dans le Keychain) |
+| **Bypass Apple / Xcode** | **Obligatoire pour iOS** — [NETSKOPE-APPLE-IT.md](NETSKOPE-APPLE-IT.md) (admin Netskope) |
 | Cible | Développeurs macOS (groupes Entra ID) |
 | Privilèges | Scripts Intune exécutés en **root** (contexte appareil) |
 
 > Guide admin général : [ADMIN.md](ADMIN.md)  
+> Checklist go-live : [CHECKLIST-IT-FLUTTER.md](CHECKLIST-IT-FLUTTER.md)  
+> Bypass Apple (prérequis iOS) : [NETSKOPE-APPLE-IT.md](NETSKOPE-APPLE-IT.md)  
 > Guide développeur : [README.md](README.md)
+
+---
+
+## Ordre de déploiement (important)
+
+```
+1. Client Netskope
+2. Bypass Apple / Xcode (NETSKOPE-APPLE-IT.md)   ← requis pour Flutter iOS
+3. Package macos-netskope-dev (ce guide)
+4. Xcode + runtimes (développeur — DEV-IOS-XCODE.md)
+```
+
+Ne pas déployer uniquement l'étape 3 en supposant qu'iOS fonctionnera.
 
 ---
 
@@ -21,10 +37,10 @@ Déploiement sur postes macOS gérés par **Microsoft Intune** (Endpoint Manager
 ```mermaid
 flowchart TB
     subgraph deploy [1. Déploiement initial]
-        PKG[gct-VERSION.tar.gz via Intune]
+        PKG[mnd-VERSION.tar.gz via Intune]
         DEP[intune-deploy-package.sh]
         PKG --> DEP
-        DEP --> DIR[/usr/local/share/gradle-corporate-truststore/]
+        DEP --> DIR[/usr/local/share/macos-netskope-dev/]
     end
 
     subgraph pr [2. Proactive Remediation]
@@ -50,7 +66,7 @@ flowchart TB
 Sur une machine de build :
 
 ```bash
-cd gradle-corporate-truststore
+cd macos-netskope-dev
 ./scripts/build-release.sh
 ```
 
@@ -58,8 +74,8 @@ Produit :
 
 | Fichier | Usage |
 |---------|-------|
-| `dist/gct-4.3.0.tar.gz` | Archive à pousser via Intune |
-| `dist/gct-4.3.0.tar.gz.sha256` | Vérification d'intégrité |
+| `dist/mnd-VERSION.tar.gz` | Archive à pousser via Intune |
+| `dist/mnd-VERSION.tar.gz.sha256` | Vérification d'intégrité |
 
 Communiquez le checksum SHA256 aux administrateurs Intune.
 
@@ -71,7 +87,7 @@ Communiquez le checksum SHA256 aux administrateurs Intune.
 
 | Paramètre | Valeur |
 |-----------|--------|
-| Nom | `gradle-corporate-truststore — deploy package` |
+| Nom | `macos-netskope-dev — deploy package` |
 | Exécuter en tant que | **Root** |
 | Notification utilisateur | Masquée |
 | Fréquence | Une fois (puis à chaque mise à jour de version) |
@@ -82,17 +98,17 @@ Contenu du script (après avoir placé l'archive sur le poste ou téléchargé d
 #!/bin/bash
 set -euo pipefail
 
-ARCHIVE="/var/tmp/gct-4.3.0.tar.gz"
-INSTALL_DIR="/usr/local/share/gradle-corporate-truststore"
+ARCHIVE="/var/tmp/mnd-VERSION.tar.gz"
+INSTALL_DIR="/usr/local/share/macos-netskope-dev"
 
 # Option : télécharger depuis un blob interne
-# curl -fsSL "https://interne.example.com/gct-4.3.0.tar.gz" -o "$ARCHIVE"
+# curl -fsSL "https://interne.example.com/mnd-VERSION.tar.gz" -o "$ARCHIVE"
 
 "$INSTALL_DIR/scripts/intune-deploy-package.sh" "$ARCHIVE" 2>/dev/null || {
   mkdir -p "$INSTALL_DIR"
   tar -xzf "$ARCHIVE" -C /var/tmp
   rm -rf "$INSTALL_DIR"/*
-  cp -R /var/tmp/gct-4.3.0/. "$INSTALL_DIR/"
+  cp -R /var/tmp/mnd-VERSION/. "$INSTALL_DIR/"
   chmod +x "$INSTALL_DIR/install.sh" "$INSTALL_DIR/scripts/"*.sh
 }
 
@@ -116,7 +132,7 @@ Adaptez le chemin de l'archive selon votre méthode de distribution (Blob, UNC, 
 
 ```bash
 #!/bin/bash
-/usr/local/share/gradle-corporate-truststore/scripts/intune-detect.sh --json
+/usr/local/share/macos-netskope-dev/scripts/intune-detect.sh --json
 ```
 
 **Codes de sortie :**
@@ -136,7 +152,7 @@ Adaptez le chemin de l'archive selon votre méthode de distribution (Blob, UNC, 
 
 ```bash
 #!/bin/bash
-/usr/local/share/gradle-corporate-truststore/scripts/intune-remediate.sh
+/usr/local/share/macos-netskope-dev/scripts/intune-remediate.sh
 ```
 
 ### Planification recommandée
@@ -146,6 +162,7 @@ Adaptez le chemin de l'archive selon votre méthode de distribution (Blob, UNC, 
 | Fréquence détection | Quotidienne |
 | Ciblage | Groupe Entra « Dev Flutter macOS » |
 | Prérequis | Netskope déjà conforme sur le poste |
+| Prérequis iOS | Bypass Apple appliqué ([NETSKOPE-APPLE-IT.md](NETSKOPE-APPLE-IT.md)) |
 
 ---
 
@@ -155,19 +172,19 @@ Installé par `install-login-agent.sh` :
 
 - Vérifie toutes les **10 minutes** (configurable) si l'utilisateur console est conforme
 - Remédie uniquement si nécessaire (`--login-only`)
-- Logs : `/var/log/gradle-corporate-truststore/login-daemon.log`
+- Logs : `/var/log/macos-netskope-dev/login-daemon.log`
 
 Variables :
 
 ```bash
-export GCT_LOGIN_CHECK_INTERVAL=600
-/usr/local/share/gradle-corporate-truststore/scripts/install-login-agent.sh
+export MND_LOGIN_CHECK_INTERVAL=600
+/usr/local/share/macos-netskope-dev/scripts/install-login-agent.sh
 ```
 
 Désinstallation :
 
 ```bash
-/usr/local/share/gradle-corporate-truststore/scripts/install-login-agent.sh --uninstall
+/usr/local/share/macos-netskope-dev/scripts/install-login-agent.sh --uninstall
 ```
 
 ---
@@ -200,8 +217,8 @@ Désinstallation :
 | `gradle_block_missing` | Bloc absent de gradle.properties |
 | `shell_block_missing` | Bloc absent du profil shell |
 
-Rapport : `~/.gradle/corporate-truststore/compliance-report.json`  
-Copie machine : `/var/log/gradle-corporate-truststore/<user>-compliance.json`
+Rapport : `~/.gradle/macos-netskope-dev/compliance-report.json`  
+Copie machine : `/var/log/macos-netskope-dev/<user>-compliance.json`
 
 ---
 
@@ -209,9 +226,9 @@ Copie machine : `/var/log/gradle-corporate-truststore/<user>-compliance.json`
 
 | Fichier | Contenu |
 |---------|---------|
-| `/var/log/gradle-corporate-truststore/intune.log` | Détection + remédiation |
-| `/var/log/gradle-corporate-truststore/remediate.log` | Sortie install.sh |
-| `/var/log/gradle-corporate-truststore/login-daemon.log` | LaunchDaemon |
+| `/var/log/macos-netskope-dev/intune.log` | Détection + remédiation |
+| `/var/log/macos-netskope-dev/remediate.log` | Sortie install.sh |
+| `/var/log/macos-netskope-dev/login-daemon.log` | LaunchDaemon |
 
 ---
 
@@ -219,11 +236,11 @@ Copie machine : `/var/log/gradle-corporate-truststore/<user>-compliance.json`
 
 | Variable | Défaut | Usage |
 |----------|--------|-------|
-| `GCT_INSTALL_DIR` | `/usr/local/share/gradle-corporate-truststore` | Chemin d'installation |
-| `GCT_LOG_DIR` | `/var/log/gradle-corporate-truststore` | Journaux |
-| `GCT_STORE_PASSWORD` | `changeit` | Mot de passe truststore |
-| `GCT_NETSKOPE_WAIT_SECS` | `300` | Attente CA Netskope |
-| `GCT_SKIP_IF_NO_USER` | `1` | Détection exit 0 si pas d'user console |
+| `MND_INSTALL_DIR` | `/usr/local/share/macos-netskope-dev` | Chemin d'installation |
+| `MND_LOG_DIR` | `/var/log/macos-netskope-dev` | Journaux |
+| `MND_STORE_PASSWORD` | `changeit` | Mot de passe truststore |
+| `MND_NETSKOPE_WAIT_SECS` | `300` | Attente CA Netskope |
+| `MND_SKIP_IF_NO_USER` | `1` | Détection exit 0 si pas d'user console |
 
 ---
 
@@ -231,7 +248,7 @@ Copie machine : `/var/log/gradle-corporate-truststore/<user>-compliance.json`
 
 ```bash
 TARGET_USER="$(/usr/bin/stat -f%Su /dev/console)"
-INSTALL="/usr/local/share/gradle-corporate-truststore"
+INSTALL="/usr/local/share/macos-netskope-dev"
 
 "$INSTALL/scripts/install-login-agent.sh" --uninstall 2>/dev/null || true
 
@@ -246,4 +263,6 @@ fi
 
 - [Scripts macOS Intune](https://learn.microsoft.com/mem/intune/apps/macos-shell-scripts)
 - [Remédiation proactive](https://learn.microsoft.com/mem/intune/fundamentals/proactive-remediations)
+- [CHECKLIST-IT-FLUTTER.md](CHECKLIST-IT-FLUTTER.md)
+- [NETSKOPE-APPLE-IT.md](NETSKOPE-APPLE-IT.md)
 - [ADMIN.md](ADMIN.md)

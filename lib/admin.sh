@@ -116,8 +116,8 @@ apply_user_paths() {
     export USER="$INSTALL_AS_USER"
     export LOGNAME="$INSTALL_AS_USER"
     export GRADLE_DIR="$target_home/.gradle"
-    export TRUSTSTORE_DIR="$GRADLE_DIR/corporate-truststore"
-    export TRUSTSTORE_FILE="$TRUSTSTORE_DIR/corporate-truststore.p12"
+    export TRUSTSTORE_DIR="$GRADLE_DIR/macos-netskope-dev"
+    export TRUSTSTORE_FILE="$TRUSTSTORE_DIR/macos-netskope-dev.p12"
     export STATE_DIR="$TRUSTSTORE_DIR/state"
     export REPORT_FILE="$TRUSTSTORE_DIR/install-report.txt"
     export MANIFEST_FILE="$STATE_DIR/manifest.json"
@@ -152,7 +152,7 @@ admin_export_certs_for_user() {
 
     apply_user_paths "$target_home"
 
-    admin_workdir="$(mktemp -d "${TMPDIR:-/tmp}/gradle-truststore-admin.XXXXXX")"
+    admin_workdir="$(mktemp -d "${TMPDIR:-/tmp}/macos-netskope-dev-admin.XXXXXX")"
     WORKDIR="$admin_workdir"
     CERT_EXPORT_DIR="$WORKDIR/certs"
     mkdir -p "$CERT_EXPORT_DIR" "$TRUSTSTORE_DIR" "$STATE_DIR"
@@ -192,7 +192,7 @@ admin_export_certs_for_user() {
     export CA_BUNDLE_FILE="$saved_bundle"
     export CERTS_CACHE_DIR="$saved_certs"
 
-    log "Certificats exportés dans : $target_home/.gradle/corporate-truststore/"
+    log "Certificats exportés dans : $target_home/.gradle/macos-netskope-dev/"
 }
 
 resolve_user_home() {
@@ -227,7 +227,7 @@ maybe_reexec_as_user() {
 
     exec sudo -u "$INSTALL_AS_USER" \
         env HOME="$target_home" USER="$INSTALL_AS_USER" LOGNAME="$INSTALL_AS_USER" \
-        GCT_CERTS_EXPORTED=1 \
+        MND_CERTS_EXPORTED=1 \
         "$SCRIPT_DIR/install.sh" "${REMAINING_ARGS[@]}"
 }
 

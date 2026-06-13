@@ -32,7 +32,7 @@ Configure **npm** et la variable `NODE_EXTRA_CA_CERTS` pour les outils Node derr
 ## Vérification manuelle
 
 ```bash
-NODE_EXTRA_CA_CERTS=$HOME/.gradle/corporate-truststore/nscacert_combined.pem npm ping
+NODE_EXTRA_CA_CERTS=$HOME/.gradle/macos-netskope-dev/nscacert_combined.pem npm ping
 firebase --version  # si installé
 ```
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Déploie l'archive gradle-corporate-truststore sur le poste (première installation Intune).
+# Déploie l'archive macos-netskope-dev sur le poste (première installation Intune).
 #
 set -Eeuo pipefail
 
@@ -8,14 +8,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=lib/intune-log.sh
 source "$SCRIPT_DIR/lib/intune-log.sh"
 
-GCT_INSTALL_DIR="${GCT_INSTALL_DIR:-/usr/local/share/gradle-corporate-truststore}"
+MND_INSTALL_DIR="${MND_INSTALL_DIR:-/usr/local/share/macos-netskope-dev}"
 ARCHIVE_PATH=""
 
 usage() {
     cat <<EOF
-Usage: $(basename "$0") /chemin/vers/gct-VERSION.tar.gz
+Usage: $(basename "$0") /chemin/vers/mnd-VERSION.tar.gz
 
-Extrait l'archive dans ${GCT_INSTALL_DIR} et rend les scripts exécutables.
+Extrait l'archive dans ${MND_INSTALL_DIR} et rend les scripts exécutables.
 Doit s'exécuter en root.
 
 EOF
@@ -36,25 +36,25 @@ main() {
     }
 
     intune_ensure_log_dir
-    tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/gct-deploy.XXXXXX")"
+    tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/mnd-deploy.XXXXXX")"
 
     tar -xzf "$ARCHIVE_PATH" -C "$tmp_dir"
-    version_file="$(find "$tmp_dir" -maxdepth 1 -name 'gct-*' -type d | head -1)"
+    version_file="$(find "$tmp_dir" -maxdepth 1 -name 'mnd-*' -type d | head -1)"
     [[ -n "$version_file" && -f "$version_file/install.sh" ]] || {
         intune_log_error "Archive invalide : install.sh introuvable."
         rm -rf "$tmp_dir"
         exit 2
     }
 
-    mkdir -p "$GCT_INSTALL_DIR"
-    rm -rf "${GCT_INSTALL_DIR:?}/"*
-    cp -R "$version_file/." "$GCT_INSTALL_DIR/"
-    chmod +x "$GCT_INSTALL_DIR/install.sh"
-    chmod +x "$GCT_INSTALL_DIR/scripts/"*.sh
+    mkdir -p "$MND_INSTALL_DIR"
+    rm -rf "${MND_INSTALL_DIR:?}/"*
+    cp -R "$version_file/." "$MND_INSTALL_DIR/"
+    chmod +x "$MND_INSTALL_DIR/install.sh"
+    chmod +x "$MND_INSTALL_DIR/scripts/"*.sh
 
     rm -rf "$tmp_dir"
 
-    intune_log_info "Déployé dans $GCT_INSTALL_DIR (version $(cat "$GCT_INSTALL_DIR/VERSION" 2>/dev/null || echo unknown))"
+    intune_log_info "Déployé dans $MND_INSTALL_DIR (version $(cat "$MND_INSTALL_DIR/VERSION" 2>/dev/null || echo unknown))"
 }
 
 main "$@"

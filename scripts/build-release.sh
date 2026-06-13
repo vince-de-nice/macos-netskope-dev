@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"
 
 DIST_DIR="$SCRIPT_DIR/dist"
-ARCHIVE_NAME="gct-${SCRIPT_VERSION}"
+ARCHIVE_NAME="mnd-${SCRIPT_VERSION}"
 STAGING_DIR="$DIST_DIR/$ARCHIVE_NAME"
 
 usage() {

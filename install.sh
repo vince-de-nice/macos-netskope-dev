@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# gradle-corporate-truststore — Configuration TLS Netskope pour Flutter/macOS
+# macos-netskope-dev — Configuration TLS Netskope pour dev macOS
 #
 # Configure individuellement ou en bloc (--all) les outils de développement
 # Flutter/Android/iOS derrière Netskope, sans modifier les cacerts JDK.
@@ -35,7 +35,7 @@ source "$SCRIPT_DIR/lib/stacks.sh"
 source "$SCRIPT_DIR/lib/rollback.sh"
 source "$SCRIPT_DIR/lib/compliance.sh"
 
-STORE_PASSWORD="${GCT_STORE_PASSWORD:-${TRUSTSTORE_PASSWORD:-$DEFAULT_STORE_PASSWORD}}"
+STORE_PASSWORD="${MND_STORE_PASSWORD:-${TRUSTSTORE_PASSWORD:-$DEFAULT_STORE_PASSWORD}}"
 MANIFEST_ENTRIES=()
 
 MODE=""
@@ -72,7 +72,7 @@ ALL_STACKS_DEFAULT=(
 usage() {
     cat <<EOF
 
-gradle-corporate-truststore v${SCRIPT_VERSION}
+macos-netskope-dev v${SCRIPT_VERSION}
 
 Configure les outils de dev Flutter/macOS pour Netskope (SSL inspection).
 
@@ -128,7 +128,7 @@ Autres options :
   --tls-host H:PORT   Hôte pour --discover-tls
   --rollback          Restaure la configuration précédente
   --password PASS     Mot de passe truststore PKCS12 (défaut: changeit)
-                        Alternative : variable GCT_STORE_PASSWORD
+                        Alternative : variable MND_STORE_PASSWORD
   --skip-verify       Ignore les tests de connectivité
   --verbose           Logs détaillés
   --dry-run           Simulation
@@ -349,7 +349,7 @@ needs_gradle_stack() {
 }
 
 needs_certificate_export() {
-    if [[ "${GCT_CERTS_EXPORTED:-}" == "1" ]]; then
+    if [[ "${MND_CERTS_EXPORTED:-}" == "1" ]]; then
         return 1
     fi
 

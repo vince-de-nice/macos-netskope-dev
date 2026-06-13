@@ -3,19 +3,23 @@
 #
 # Fonctions communes : logging, erreurs, privilèges, chemins, état.
 
-: "${SCRIPT_VERSION:=4.3.0}"
+: "${SCRIPT_VERSION:=1.0.0}"
 : "${SCRIPT_DIR:=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+: "${PROJECT_NAME:=macos-netskope-dev}"
 
 DEFAULT_STORE_PASSWORD="changeit"
+DEFAULT_INSTALL_DIR="/usr/local/share/macos-netskope-dev"
+DEFAULT_LOG_DIR="/var/log/macos-netskope-dev"
+
 GRADLE_DIR="${GRADLE_DIR:-$HOME/.gradle}"
-TRUSTSTORE_DIR="${TRUSTSTORE_DIR:-$GRADLE_DIR/corporate-truststore}"
-TRUSTSTORE_FILE="${TRUSTSTORE_FILE:-$TRUSTSTORE_DIR/corporate-truststore.p12}"
+TRUSTSTORE_DIR="${TRUSTSTORE_DIR:-$GRADLE_DIR/macos-netskope-dev}"
+TRUSTSTORE_FILE="${TRUSTSTORE_FILE:-$TRUSTSTORE_DIR/macos-netskope-dev.p12}"
 STATE_DIR="${STATE_DIR:-$TRUSTSTORE_DIR/state}"
 REPORT_FILE="${REPORT_FILE:-$TRUSTSTORE_DIR/install-report.txt}"
 MANIFEST_FILE="${MANIFEST_FILE:-$STATE_DIR/manifest.json}"
 
-MARKER_BEGIN="# BEGIN gradle-corporate-truststore"
-MARKER_END="# END gradle-corporate-truststore"
+MARKER_BEGIN="# BEGIN macos-netskope-dev"
+MARKER_END="# END macos-netskope-dev"
 
 VERBOSE=false
 DRY_RUN=false
@@ -44,30 +48,27 @@ debug() {
 }
 
 die() {
-    error "$*"
+    error "$@"
     exit 1
 }
 
-require_macos() {
-    [[ "$(uname -s)" == "Darwin" ]] || die "Ce script nécessite macOS."
-}
-
 require_commands() {
-    local missing=()
-    local cmd
+    local cmd missing=()
+
     for cmd in "$@"; do
         command -v "$cmd" >/dev/null 2>&1 || missing+=("$cmd")
     done
-    if ((${#missing[@]} > 0)); then
-        die "Commandes manquantes : ${missing[*]}"
-    fi
+
+    ((${#missing[@]} == 0)) ||
+        die "Commandes requises manquantes : ${missing[*]}"
 }
 
-ensure_sudo() {
-    if [[ "$DRY_RUN" == true ]]; then
-        return 0
-    fi
+require_macos() {
+    [[ "$(uname -s)" == "Darwin" ]] ||
+        die "Ce script est conçu pour macOS uniquement."
+}
 
+require_admin_for_keychain() {
     if [[ "$EUID" -eq 0 ]]; then
         return 0
     fi
@@ -75,6 +76,13 @@ ensure_sudo() {
     if ! sudo -v; then
         die "Privilèges administrateur requis pour accéder au trousseau système."
     fi
+}
+
+file_has_marker_block() {
+    local file="$1"
+
+    [[ -f "$file" ]] || return 1
+    grep -q "^${MARKER_BEGIN}$" "$file" 2>/dev/null
 }
 
 file_exists_label() {
@@ -90,16 +98,12 @@ file_exists_label() {
 }
 
 gradle_has_generated_block() {
-    [[ -f "${GRADLE_DIR}/gradle.properties" ]] &&
-        grep -q "^${MARKER_BEGIN}$" "${GRADLE_DIR}/gradle.properties" 2>/dev/null
+    file_has_marker_block "${GRADLE_DIR}/gradle.properties"
 }
 
 shell_has_generated_block() {
-    local profile=""
-
     detect_shell_profile
-    profile="$SHELL_PROFILE_FILE"
-    [[ -f "$profile" ]] && grep -q "^${MARKER_BEGIN}$" "$profile" 2>/dev/null
+    file_has_marker_block "$SHELL_PROFILE_FILE"
 }
 
 confirm_or_die() {
@@ -112,7 +116,7 @@ confirm_or_die() {
 }
 
 init_workdir() {
-    WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/gradle-truststore.XXXXXX")"
+    WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/macos-netskope-dev.XXXXXX")"
     trap 'cleanup_workdir' EXIT
 }
 
@@ -129,6 +133,7 @@ reset_report() {
     ensure_dirs
     {
         echo "Install Report"
+        echo "Project: $PROJECT_NAME"
         echo "Version: $SCRIPT_VERSION"
         echo "Date: $(date)"
         echo "Host: $(scutil --get ComputerName 2>/dev/null || hostname)"

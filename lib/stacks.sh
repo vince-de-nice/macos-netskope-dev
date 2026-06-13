@@ -35,12 +35,15 @@ print_stack_doc() {
 
 print_all_docs_index() {
     local stack doc_file
-    echo "Documentation gradle-corporate-truststore v${SCRIPT_VERSION}"
+    echo "Documentation macos-netskope-dev v${SCRIPT_VERSION}"
     echo
     echo "Guides :"
-    echo "  docs/README.md     — développeur"
-    echo "  docs/ADMIN.md      — administrateur IT"
-    echo "  docs/INTUNE.md     — Microsoft Intune"
+    echo "  docs/README.md              — développeur"
+    echo "  docs/ADMIN.md               — administrateur IT"
+    echo "  docs/CHECKLIST-IT-FLUTTER.md — go-live Flutter (IT)"
+    echo "  docs/NETSKOPE-APPLE-IT.md   — Netskope / Apple / Xcode (IT réseau)"
+    echo "  docs/DEV-IOS-XCODE.md       — développeur iOS"
+    echo "  docs/INTUNE.md              — Microsoft Intune"
     echo
     echo "Stacks disponibles :"
     echo

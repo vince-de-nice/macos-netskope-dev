@@ -31,7 +31,7 @@ export AWS_CA_BUNDLE="${NETSKOPE_CA_BUNDLE}"
 ## Vérification manuelle
 
 ```bash
-AWS_CA_BUNDLE=$HOME/.gradle/corporate-truststore/nscacert_combined.pem aws sts get-caller-identity
+AWS_CA_BUNDLE=$HOME/.gradle/macos-netskope-dev/nscacert_combined.pem aws sts get-caller-identity
 ```
 
 ## Nécessaire si…

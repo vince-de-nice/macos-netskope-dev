@@ -54,10 +54,10 @@ extract_existing_jvmargs() {
 remove_generated_block() {
     local input_file="$1"
     local output_file="$2"
-    awk '
+    awk -v begin="$MARKER_BEGIN" -v end="$MARKER_END" '
         BEGIN { skip=0 }
-        $0 ~ /^# BEGIN gradle-corporate-truststore$/ { skip=1; next }
-        $0 ~ /^# END gradle-corporate-truststore$/ { skip=0; next }
+        $0 == begin { skip=1; next }
+        $0 == end { skip=0; next }
         skip==0 { print }
     ' "$input_file" > "$output_file"
 }

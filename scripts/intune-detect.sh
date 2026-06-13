@@ -9,8 +9,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=lib/intune-log.sh
 source "$SCRIPT_DIR/lib/intune-log.sh"
 
-GCT_INSTALL_DIR="${GCT_INSTALL_DIR:-/usr/local/share/gradle-corporate-truststore}"
-INSTALL_SH="${GCT_INSTALL_DIR}/install.sh"
+MND_INSTALL_DIR="${MND_INSTALL_DIR:-/usr/local/share/macos-netskope-dev}"
+INSTALL_SH="${MND_INSTALL_DIR}/install.sh"
 
 usage() {
     cat <<EOF
@@ -20,9 +20,9 @@ Détection de conformité pour Microsoft Intune Proactive Remediation.
 Doit s'exécuter en root (script macOS Intune — gestion des appareils).
 
 Variables :
-  GCT_INSTALL_DIR          Chemin d'installation (défaut: /usr/local/share/gradle-corporate-truststore)
-  GCT_LOG_DIR              Journal (/var/log/gradle-corporate-truststore)
-  GCT_SKIP_IF_NO_USER=1    Exit 0 si aucun utilisateur console (défaut: 1)
+  MND_INSTALL_DIR          Chemin d'installation (défaut: /usr/local/share/macos-netskope-dev)
+  MND_LOG_DIR              Journal (/var/log/macos-netskope-dev)
+  MND_SKIP_IF_NO_USER=1    Exit 0 si aucun utilisateur console (défaut: 1)
 
 EOF
 }
@@ -81,7 +81,7 @@ main() {
         if [[ "$OUTPUT_JSON" == true ]]; then
             write_skip_json "no_console_user"
         fi
-        if [[ "${GCT_SKIP_IF_NO_USER:-1}" == "1" ]]; then
+        if [[ "${MND_SKIP_IF_NO_USER:-1}" == "1" ]]; then
             exit 0
         fi
         exit 1
@@ -108,9 +108,10 @@ main() {
         echo "$json_output"
     fi
 
-    if [[ -f "$target_home/.gradle/corporate-truststore/compliance-report.json" ]]; then
-        cp "$target_home/.gradle/corporate-truststore/compliance-report.json" \
-            "$GCT_LOG_DIR/${target_user}-compliance.json" 2>/dev/null || true
+    local report_path="$target_home/.gradle/macos-netskope-dev/compliance-report.json"
+
+    if [[ -f "$report_path" ]]; then
+        cp "$report_path" "$MND_LOG_DIR/${target_user}-compliance.json" 2>/dev/null || true
     fi
 
     intune_log_info "Résultat détection : exit $exit_code"

@@ -8,6 +8,8 @@ Ajoute les certificats **Root Netskope** au Keychain du **simulateur iOS booté*
 
 > **Important :** distinct de la configuration **build** (Gradle, CocoaPods). Concerne le **runtime** de l'app dans le simulateur.
 
+> **Prérequis :** Xcode et runtimes simulateur **installés** — nécessitent le bypass Netskope Apple côté IT ([NETSKOPE-APPLE-IT.md](../NETSKOPE-APPLE-IT.md)). Guide dev : [DEV-IOS-XCODE.md](../DEV-IOS-XCODE.md).
+
 ## Endpoints impactés
 
 Tout HTTPS appelé par l'app Flutter **dans le simulateur** :

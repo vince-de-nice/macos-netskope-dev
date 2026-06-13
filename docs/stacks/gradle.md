@@ -31,7 +31,7 @@ Configure la JVM utilisée par **Gradle** pour faire confiance à la CA Netskope
 
 ## Ce que le script configure
 
-- Export CA Netskope → truststore PKCS12 : `~/.gradle/corporate-truststore/corporate-truststore.p12`
+- Export CA Netskope → truststore PKCS12 : `~/.gradle/macos-netskope-dev/macos-netskope-dev.p12`
 - Bloc dans `~/.gradle/gradle.properties` :
   ```
   org.gradle.jvmargs=-Djavax.net.ssl.trustStore=... -Djavax.net.ssl.trustStoreType=PKCS12 ...

@@ -3,12 +3,12 @@
 #
 # Journalisation centralisée pour scripts Intune / MDM.
 
-GCT_LOG_DIR="${GCT_LOG_DIR:-/var/log/gradle-corporate-truststore}"
+MND_LOG_DIR="${MND_LOG_DIR:-/var/log/macos-netskope-dev}"
 
 intune_ensure_log_dir() {
     if [[ "$EUID" -eq 0 ]]; then
-        mkdir -p "$GCT_LOG_DIR"
-        chmod 755 "$GCT_LOG_DIR"
+        mkdir -p "$MND_LOG_DIR"
+        chmod 755 "$MND_LOG_DIR"
     fi
 }
 
@@ -19,8 +19,8 @@ intune_log() {
     message="[$(date '+%Y-%m-%d %H:%M:%S')] [$level] $*"
 
     echo "$message"
-    if [[ "$EUID" -eq 0 && -d "$GCT_LOG_DIR" ]]; then
-        echo "$message" >> "$GCT_LOG_DIR/intune.log"
+    if [[ "$EUID" -eq 0 && -d "$MND_LOG_DIR" ]]; then
+        echo "$message" >> "$MND_LOG_DIR/intune.log"
     fi
 }
 

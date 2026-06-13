@@ -31,10 +31,11 @@ Tous les endpoints des stacks consommant ces variables (voir docs individuelles)
 | `--dart` seul | Configuré automatiquement si absent |
 | Terminal IDE (VS Code, Android Studio) | **Oui** si lancé depuis le shell |
 | Apps GUI macOS (Xcode, Android Studio) | **Non** — n'héritent pas du profil shell |
+| App Store / téléchargements Xcode | **Non** — certificate pinning ; voir [NETSKOPE-APPLE-IT.md](../NETSKOPE-APPLE-IT.md) |
 
 ## Ce que le script configure
 
-Bloc marqué `# BEGIN gradle-corporate-truststore` … `# END` dans le profil shell du **utilisateur courant** (voir [ADMIN.md](../ADMIN.md) si déploiement par un admin).
+Bloc marqué `# BEGIN macos-netskope-dev` … `# END` dans le profil shell du **utilisateur courant** (voir [ADMIN.md](../ADMIN.md) si déploiement par un admin).
 
 ## Après installation
 

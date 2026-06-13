@@ -8,10 +8,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=lib/intune-log.sh
 source "$SCRIPT_DIR/lib/intune-log.sh"
 
-GCT_INSTALL_DIR="${GCT_INSTALL_DIR:-/usr/local/share/gradle-corporate-truststore}"
-PLIST_LABEL="com.gradle-corporate-truststore.login"
+MND_INSTALL_DIR="${MND_INSTALL_DIR:-/usr/local/share/macos-netskope-dev}"
+PLIST_LABEL="com.macos-netskope-dev.login"
 PLIST_PATH="/Library/LaunchDaemons/${PLIST_LABEL}.plist"
-CHECK_INTERVAL="${GCT_LOGIN_CHECK_INTERVAL:-600}"
+CHECK_INTERVAL="${MND_LOGIN_CHECK_INTERVAL:-600}"
 
 usage() {
     cat <<EOF
@@ -21,11 +21,11 @@ Installe ou supprime le LaunchDaemon de vérification post-connexion.
 Doit s'exécuter en root.
 
 Le daemon exécute toutes les ${CHECK_INTERVAL}s :
-  ${GCT_INSTALL_DIR}/scripts/intune-remediate.sh --login-only
+  ${MND_INSTALL_DIR}/scripts/intune-remediate.sh --login-only
 
 Variables :
-  GCT_INSTALL_DIR           Chemin d'installation
-  GCT_LOGIN_CHECK_INTERVAL  Intervalle en secondes (défaut: 600)
+  MND_INSTALL_DIR           Chemin d'installation
+  MND_LOGIN_CHECK_INTERVAL  Intervalle en secondes (défaut: 600)
 
 EOF
 }
@@ -40,7 +40,7 @@ write_plist() {
     <string>${PLIST_LABEL}</string>
     <key>ProgramArguments</key>
     <array>
-        <string>${GCT_INSTALL_DIR}/scripts/intune-remediate.sh</string>
+        <string>${MND_INSTALL_DIR}/scripts/intune-remediate.sh</string>
         <string>--login-only</string>
     </array>
     <key>StartInterval</key>
@@ -48,9 +48,9 @@ write_plist() {
     <key>RunAtLoad</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>/var/log/gradle-corporate-truststore/login-daemon.log</string>
+    <string>/var/log/macos-netskope-dev/login-daemon.log</string>
     <key>StandardErrorPath</key>
-    <string>/var/log/gradle-corporate-truststore/login-daemon.err</string>
+    <string>/var/log/macos-netskope-dev/login-daemon.err</string>
 </dict>
 </plist>
 EOF
@@ -59,8 +59,8 @@ EOF
 install_daemon() {
     intune_ensure_log_dir
 
-    if [[ ! -x "${GCT_INSTALL_DIR}/scripts/intune-remediate.sh" ]]; then
-        intune_log_error "Script introuvable : ${GCT_INSTALL_DIR}/scripts/intune-remediate.sh"
+    if [[ ! -x "${MND_INSTALL_DIR}/scripts/intune-remediate.sh" ]]; then
+        intune_log_error "Script introuvable : ${MND_INSTALL_DIR}/scripts/intune-remediate.sh"
         exit 2
     fi
 

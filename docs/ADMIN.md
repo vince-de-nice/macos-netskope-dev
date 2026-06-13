@@ -1,6 +1,8 @@
 # Guide administrateur
 
-Ce document explique comment déployer **gradle-corporate-truststore** sur les postes macOS de développeurs derrière **Netskope**.
+Ce document explique comment déployer **macos-netskope-dev** sur les postes macOS de développeurs derrière **Netskope**.
+
+> **Go-live Flutter complet (Android + iOS) :** suivez **[CHECKLIST-IT-FLUTTER.md](CHECKLIST-IT-FLUTTER.md)** — ce script ne couvre que la **couche CLI**. Pour **Xcode / App Store**, l'admin Netskope doit appliquer **[NETSKOPE-APPLE-IT.md](NETSKOPE-APPLE-IT.md)** en amont ou en parallèle.
 
 ## Point essentiel : configuration par utilisateur
 
@@ -8,13 +10,13 @@ Le script **n'est pas** une installation machine-wide (contrairement au client N
 
 | Ressource | Emplacement |
 |-----------|-------------|
-| Truststore Gradle | `~/.gradle/corporate-truststore/` |
+| Truststore Gradle | `~/.gradle/macos-netskope-dev/` |
 | Gradle | `~/.gradle/gradle.properties` |
 | Variables d'env | `~/.zshrc`, `~/.zprofile` ou `~/.bash_profile` (bloc marqué) |
 | Git | `~/.gitconfig` (`http.sslCAInfo`) |
 | npm | `~/.npmrc` |
 | gcloud | `~/.config/gcloud/` |
-| État / rollback | `~/.gradle/corporate-truststore/state/manifest.json` |
+| État / rollback | `~/.gradle/macos-netskope-dev/state/manifest.json` |
 
 **Chaque développeur** doit disposer de sa propre exécution (ou un admin doit lancer le script **explicitement pour son compte**).
 
@@ -39,7 +41,7 @@ Le script **refuse** une exécution en root sans `--as-user`.
 Le développeur clone ou reçoit le script, puis exécute :
 
 ```bash
-cd /chemin/vers/gradle-corporate-truststore
+cd /chemin/vers/macos-netskope-dev
 ./install.sh --all --netskope --yes
 source ~/.zshrc
 ./install.sh --status
@@ -56,7 +58,7 @@ Mot de passe admin demandé **une fois** (accès Keychain système). Aucune acti
 Depuis une session admin (root ou compte avec `sudo`) :
 
 ```bash
-cd /chemin/vers/gradle-corporate-truststore
+cd /chemin/vers/macos-netskope-dev
 sudo ./install.sh --as-user jdupont --all --netskope --yes
 ```
 
@@ -72,7 +74,7 @@ Cette option **ne déclenche pas l'export Keychain root**. À réserver si les c
 
 ```bash
 sudo -u jdupont env HOME=/Users/jdupont \
-  /chemin/vers/gradle-corporate-truststore/install.sh --all --netskope --yes
+  /chemin/vers/macos-netskope-dev/install.sh --all --netskope --yes
 ```
 
 Préférez l'**Option A** (`sudo ./install.sh --as-user`) pour le déploiement IT standard.
@@ -81,8 +83,8 @@ Préférez l'**Option A** (`sudo ./install.sh --as-user`) pour le déploiement I
 
 ```bash
 sudo -u jdupont ./install.sh --status
-ls -la /Users/jdupont/.gradle/corporate-truststore/
-grep -A2 'gradle-corporate-truststore' /Users/jdupont/.zshrc
+ls -la /Users/jdupont/.gradle/macos-netskope-dev/
+grep -A2 'macos-netskope-dev' /Users/jdupont/.zshrc
 ```
 
 Demander au développeur d'**ouvrir un nouveau terminal** ou de lancer `source ~/.zshrc` (les IDE déjà ouverts peuvent ne pas voir les variables).
@@ -98,7 +100,7 @@ Exécuter le script **via l'admin système** pour exporter le Keychain, puis con
 
 ```bash
 #!/bin/bash
-INSTALL_DIR="/usr/local/share/gradle-corporate-truststore"
+INSTALL_DIR="/usr/local/share/macos-netskope-dev"
 TARGET_USER="$(/usr/bin/stat -f%Su /dev/console)"
 
 [[ "$TARGET_USER" == "root" || -z "$TARGET_USER" ]] && exit 0
@@ -152,9 +154,23 @@ Détail par stack : [README.md](README.md) et `./install.sh --docs <stack>`.
 
 ## Prérequis machine
 
+### Client Netskope et script (couche CLI)
+
 - macOS avec **client Netskope** installé et CA présente dans le Keychain
 - Certificats Netskope visibles : `./install.sh --list-netskope`
 - Outils selon stacks : `git`, `java`/`keytool` (Gradle), `openssl`, optionnellement `npm`, `gcloud`, Xcode (`--simulator`)
+
+### Flutter iOS — prérequis IT Netskope (couche Apple)
+
+**Obligatoire** si les développeurs installent Xcode ou des runtimes simulateur sur le réseau inspecté :
+
+| Prérequis | Document | Validé ? |
+|-----------|----------|----------|
+| CPA **Apple App Store** (Mac) en Bypass | [NETSKOPE-APPLE-IT.md §4 étape 1](NETSKOPE-APPLE-IT.md#étape-1--vérifier-le-cpa-prédéfini-apple-app-store-mac) | ☐ |
+| SSL Decryption bypass domaines Apple (Xcode, Apple ID, CDN) | [NETSKOPE-APPLE-IT.md §4 étape 2](NETSKOPE-APPLE-IT.md#étape-2--bypass-ssl-decryption-pour-domaines-apple-xcode-simulateurs-apple-id) | ☐ |
+| Poste pilote : App Store + téléchargement runtime Xcode | [NETSKOPE-APPLE-IT.md §6](NETSKOPE-APPLE-IT.md#6-validation-bout-en-bout-poste-pilote) | ☐ |
+
+Sans ces prérequis, `./install.sh --all` peut réussir alors que **Xcode reste inutilisable**.
 
 ---
 
@@ -169,13 +185,19 @@ Détail par stack : [README.md](README.md) et `./install.sh --docs <stack>`.
 | Gradle OK, `flutter pub get` échoue | Stack `--dart` absente | `./install.sh --dart --netskope` |
 | Simulateur iOS SSL -1200 | Stack `--simulator` non faite | Dev démarre simulateur, relance `--simulator` |
 | Gradle ne prend pas le truststore | Daemon Gradle actif | `cd android && ./gradlew --stop`, relancer le build |
+| App Store / Xcode ne téléchargent pas | Bypass Apple Netskope manquant | [NETSKOPE-APPLE-IT.md](NETSKOPE-APPLE-IT.md) — pas le script |
+| Xcode OK, `pod install` échoue | Stacks Ruby/Git ou script absent | `./install.sh --ruby --git --netskope --yes` |
 | `--rollback` après install partielle | Comportement corrigé en v4.1 (manifest fusionné) | Mettre à jour le script si version < 4.1 |
 
-Rapport d'installation : `~/.gradle/corporate-truststore/install-report.txt`
+Rapport d'installation : `~/.gradle/macos-netskope-dev/install-report.txt`
 
 ---
 
 ## Références
 
 - [README développeur](README.md)
+- [Checklist IT Flutter (go-live)](CHECKLIST-IT-FLUTTER.md)
+- [Netskope — Apple / Xcode (admin réseau)](NETSKOPE-APPLE-IT.md)
+- [Guide développeur iOS](DEV-IOS-XCODE.md)
+- [Microsoft Intune](INTUNE.md)
 - [Netskope — Configuring Developer Tools](https://community.netskope.com/next-gen-swg-2/configuring-developer-tools-with-netskope-ssl-inspection-8493)

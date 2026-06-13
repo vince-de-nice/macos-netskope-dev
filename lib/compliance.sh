@@ -4,9 +4,9 @@
 # Évaluation de conformité pour Intune / MDM (Proactive Remediation).
 
 # Codes de sortie --compliance
-: "${GCT_COMPLIANCE_OK:=0}"
-: "${GCT_COMPLIANCE_NEEDS_REMEDIATION:=1}"
-: "${GCT_COMPLIANCE_ERROR:=2}"
+: "${MND_COMPLIANCE_OK:=0}"
+: "${MND_COMPLIANCE_NEEDS_REMEDIATION:=1}"
+: "${MND_COMPLIANCE_ERROR:=2}"
 
 COMPLIANCE_STATUS=""
 COMPLIANCE_REASONS=()
@@ -14,7 +14,7 @@ COMPLIANCE_CONFIGURED_STACKS=()
 COMPLIANCE_MISSING_STACKS=()
 
 # Stacks attendues par défaut (--all sans simulateur).
-GCT_EXPECTED_STACKS=(
+MND_EXPECTED_STACKS=(
     gradle
     shell
     dart
@@ -62,7 +62,7 @@ compliance_collect_stack_state() {
     COMPLIANCE_CONFIGURED_STACKS=()
     COMPLIANCE_MISSING_STACKS=()
 
-    for stack in "${GCT_EXPECTED_STACKS[@]}"; do
+    for stack in "${MND_EXPECTED_STACKS[@]}"; do
         configured="$(load_manifest_value "stack_${stack}" 2>/dev/null || true)"
         if [[ "$configured" == "configured" ]]; then
             COMPLIANCE_CONFIGURED_STACKS+=("$stack")
@@ -75,7 +75,7 @@ compliance_collect_stack_state() {
 compliance_evaluate() {
     local manifest_state truststore_state bundle_state
     local configured_count manifest_version stored_fp current_fp
-    local healthy=true exit_code=$GCT_COMPLIANCE_OK
+    local healthy=true exit_code=$MND_COMPLIANCE_OK
 
     COMPLIANCE_STATUS="compliant"
     COMPLIANCE_REASONS=()
@@ -147,7 +147,7 @@ compliance_evaluate() {
 
     if [[ "$healthy" == false ]]; then
         COMPLIANCE_STATUS="needs_remediation"
-        exit_code=$GCT_COMPLIANCE_NEEDS_REMEDIATION
+        exit_code=$MND_COMPLIANCE_NEEDS_REMEDIATION
     fi
 
     return "$exit_code"
@@ -176,7 +176,7 @@ json_array_from_bash() {
 }
 
 write_compliance_report() {
-    local report_path="${GCT_COMPLIANCE_REPORT:-$TRUSTSTORE_DIR/compliance-report.json}"
+    local report_path="${MND_COMPLIANCE_REPORT:-$TRUSTSTORE_DIR/compliance-report.json}"
     local manifest_version truststore_state bundle_state stored_fp current_fp
     local json_output
 
@@ -212,7 +212,7 @@ build_compliance_json() {
   "reasons": $(json_array_from_bash "${COMPLIANCE_REASONS[@]:-}"),
   "configured_stacks": $(json_array_from_bash "${COMPLIANCE_CONFIGURED_STACKS[@]:-}"),
   "missing_stacks": $(json_array_from_bash "${COMPLIANCE_MISSING_STACKS[@]:-}"),
-  "expected_stacks": $(json_array_from_bash "${GCT_EXPECTED_STACKS[@]}"),
+  "expected_stacks": $(json_array_from_bash "${MND_EXPECTED_STACKS[@]}"),
   "truststore": "$(json_escape "$truststore_state")",
   "bundle": "$(json_escape "$bundle_state")",
   "ca_fingerprint_stored": "$(json_escape "${stored_fp:-}")",
@@ -227,7 +227,7 @@ EOF
 print_compliance_human() {
     local stack
 
-    echo "Conformité gradle-corporate-truststore — v${SCRIPT_VERSION}"
+    echo "Conformité macos-netskope-dev — v${SCRIPT_VERSION}"
     echo
     echo "Statut : $COMPLIANCE_STATUS"
     if ((${#COMPLIANCE_REASONS[@]} > 0)); then
@@ -237,7 +237,7 @@ print_compliance_human() {
         done
     fi
     echo
-    echo "Stacks configurées (${#COMPLIANCE_CONFIGURED_STACKS[@]}/${#GCT_EXPECTED_STACKS[@]}) :"
+    echo "Stacks configurées (${#COMPLIANCE_CONFIGURED_STACKS[@]}/${#MND_EXPECTED_STACKS[@]}) :"
     if ((${#COMPLIANCE_CONFIGURED_STACKS[@]} > 0)); then
         for stack in "${COMPLIANCE_CONFIGURED_STACKS[@]}"; do
             echo "  [✓] $stack"

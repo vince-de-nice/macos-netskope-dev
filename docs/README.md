@@ -1,4 +1,4 @@
-# Documentation — gradle-corporate-truststore
+# Documentation — macos-netskope-dev
 
 Configuration TLS Netskope pour le développement **Flutter sur macOS d'entreprise**.
 
@@ -6,11 +6,13 @@ Configuration TLS Netskope pour le développement **Flutter sur macOS d'entrepri
 
 | Rôle | Document | Commande type |
 |------|----------|---------------|
-| **Développeur** | Ce README | `./install.sh --all --netskope --yes` |
-| **Administrateur IT** | **[ADMIN.md](ADMIN.md)** | `sudo ./install.sh --as-user <login> --all --netskope --yes` |
+| **Développeur** | Ce README + [DEV-IOS-XCODE.md](DEV-IOS-XCODE.md) | `./install.sh --all --netskope --yes` |
+| **Administrateur IT** | **[ADMIN.md](ADMIN.md)** + **[CHECKLIST-IT-FLUTTER.md](CHECKLIST-IT-FLUTTER.md)** | `sudo ./install.sh --as-user <login> --all --netskope --yes` |
+| **Admin Netskope (Apple / Xcode)** | **[NETSKOPE-APPLE-IT.md](NETSKOPE-APPLE-IT.md)** | Bypass CPA + domaines Apple |
 | **Intune / Endpoint Manager** | **[INTUNE.md](INTUNE.md)** | Proactive Remediation + `scripts/intune-remediate.sh` |
 
 > **Important :** la configuration est **par utilisateur** (`~/.gradle`, `~/.zshrc`, git/npm globaux). Un admin qui lance le script sur son propre compte ne configure **pas** les postes des développeurs. Voir [ADMIN.md](ADMIN.md).
+> **Flutter iOS :** ce script configure les **outils CLI** (Gradle, CocoaPods, Dart…). **Xcode et le Mac App Store** nécessitent des **actions IT Netskope** distinctes — voir [NETSKOPE-APPLE-IT.md](NETSKOPE-APPLE-IT.md) et [DEV-IOS-XCODE.md](DEV-IOS-XCODE.md).
 
 ## Principe
 
@@ -82,18 +84,19 @@ Détails MDM, pièges (`sudo` sans `--as-user`), dépannage : **[ADMIN.md](ADMIN
 | Firebase CLI | `--node` |
 | Projet Flutter + Firebase (complet) | `--gradle --dart --git --node --ruby` ou `--all` |
 | Téléchargement SDK Flutter | `--dart` + `--curl` |
-| App HTTPS en simulateur iOS | `--simulator` (runtime) |
+| App HTTPS en simulateur iOS | `--simulator` (runtime) — prérequis : Xcode installé ([DEV-IOS-XCODE.md](DEV-IOS-XCODE.md)) |
+| Installation Xcode / App Store | **IT Netskope** — [NETSKOPE-APPLE-IT.md](NETSKOPE-APPLE-IT.md) (hors script) |
 | CI Docker local | Hors scope macOS (voir doc Netskope Docker) |
 
 ## Fichiers créés (par utilisateur)
 
 | Fichier | Rôle |
 |---------|------|
-| `~/.gradle/corporate-truststore/corporate-truststore.p12` | Truststore JVM Gradle |
-| `~/.gradle/corporate-truststore/nscacert_combined.pem` | Bundle CA pour CLI |
+| `~/.gradle/macos-netskope-dev/macos-netskope-dev.p12` | Truststore JVM Gradle |
+| `~/.gradle/macos-netskope-dev/nscacert_combined.pem` | Bundle CA pour CLI |
 | `~/.gradle/gradle.properties` | JVM args Gradle |
 | Variables d'env | `~/.zshrc`, `~/.zprofile` ou `~/.bash_profile` (bloc marqué) |
-| `~/.gradle/corporate-truststore/state/manifest.json` | État pour rollback (fusionné à chaque stack) |
+| `~/.gradle/macos-netskope-dev/state/manifest.json` | État pour rollback (fusionné à chaque stack) |
 
 ## Mot de passe truststore
 
@@ -102,7 +105,7 @@ Par défaut : `changeit` (truststore PKCS12 local, non sensible).
 Alternative recommandée :
 
 ```bash
-export GCT_STORE_PASSWORD="votre-mot-de-passe"
+export MND_STORE_PASSWORD="votre-mot-de-passe"
 ./install.sh --all --netskope --yes
 ```
 
@@ -111,6 +114,10 @@ Le mot de passe n'est **pas** stocké dans le manifest (uniquement dans `gradle.
 ## Références
 
 - [Guide administrateur](ADMIN.md)
+- [Checklist déploiement IT Flutter](CHECKLIST-IT-FLUTTER.md)
+- [Netskope — Apple / Xcode / App Store (IT)](NETSKOPE-APPLE-IT.md)
+- [Guide développeur iOS / Xcode](DEV-IOS-XCODE.md)
+- [Microsoft Intune](INTUNE.md)
 - [Netskope — Configuring Developer Tools](https://community.netskope.com/next-gen-swg-2/configuring-developer-tools-with-netskope-ssl-inspection-8493)
 - [Netskope — Certificate Pinned Applications](https://docs.netskope.com/en/certificate-pinned-applications/)
 

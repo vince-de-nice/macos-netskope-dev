@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Suite de tests automatisée pour gradle-corporate-truststore.
+# Suite de tests automatisée pour macos-netskope-dev.
 # Exécutable sans Netskope : certificats mock, dry-run, répertoires isolés dans /tmp.
 #
 # Usage :
@@ -127,11 +127,11 @@ assert_failure() {
 }
 
 setup_test_root() {
-    TEST_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/gradle-truststore-tests.XXXXXX")"
+    TEST_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/macos-netskope-dev-tests.XXXXXX")"
     ORIG_HOME="${HOME:-}"
     export TRUSTSTORE_DIR="$TEST_ROOT/truststore"
     export GRADLE_DIR="$TEST_ROOT/gradle"
-    export TRUSTSTORE_FILE="$TRUSTSTORE_DIR/corporate-truststore.p12"
+    export TRUSTSTORE_FILE="$TRUSTSTORE_DIR/macos-netskope-dev.p12"
     export STATE_DIR="$TRUSTSTORE_DIR/state"
     export MANIFEST_FILE="$STATE_DIR/manifest.json"
     export REPORT_FILE="$TRUSTSTORE_DIR/install-report.txt"
@@ -524,13 +524,13 @@ test_tls_java_endpoints() {
 set_install_paths() {
     INSTALL_HOME="$TEST_ROOT/install-home"
     export GRADLE_DIR="$INSTALL_HOME/.gradle"
-    export TRUSTSTORE_DIR="$INSTALL_HOME/.gradle/corporate-truststore"
-    export TRUSTSTORE_FILE="$INSTALL_HOME/.gradle/corporate-truststore/corporate-truststore.p12"
-    export STATE_DIR="$INSTALL_HOME/.gradle/corporate-truststore/state"
-    export MANIFEST_FILE="$INSTALL_HOME/.gradle/corporate-truststore/state/manifest.json"
-    export REPORT_FILE="$INSTALL_HOME/.gradle/corporate-truststore/install-report.txt"
-    export CA_BUNDLE_FILE="$INSTALL_HOME/.gradle/corporate-truststore/nscacert_combined.pem"
-    export CERTS_CACHE_DIR="$INSTALL_HOME/.gradle/corporate-truststore/certs"
+    export TRUSTSTORE_DIR="$INSTALL_HOME/.gradle/macos-netskope-dev"
+    export TRUSTSTORE_FILE="$INSTALL_HOME/.gradle/macos-netskope-dev/macos-netskope-dev.p12"
+    export STATE_DIR="$INSTALL_HOME/.gradle/macos-netskope-dev/state"
+    export MANIFEST_FILE="$INSTALL_HOME/.gradle/macos-netskope-dev/state/manifest.json"
+    export REPORT_FILE="$INSTALL_HOME/.gradle/macos-netskope-dev/install-report.txt"
+    export CA_BUNDLE_FILE="$INSTALL_HOME/.gradle/macos-netskope-dev/nscacert_combined.pem"
+    export CERTS_CACHE_DIR="$INSTALL_HOME/.gradle/macos-netskope-dev/certs"
     GRADLE_PROPERTIES="${GRADLE_DIR}/gradle.properties"
 }
 
@@ -620,7 +620,7 @@ test_shell_profile_block_write() {
     assert_contains "NETSKOPE_CA_BUNDLE" "$content" "NETSKOPE_CA_BUNDLE"
     assert_contains "DART_VM_OPTIONS" "$content" "DART_VM_OPTIONS"
     assert_contains "NODE_EXTRA_CA_CERTS" "$content" "NODE_EXTRA_CA_CERTS"
-    assert_contains "marqueur BEGIN" "$content" "# BEGIN gradle-corporate-truststore"
+    assert_contains "marqueur BEGIN" "$content" "# BEGIN macos-netskope-dev"
 }
 
 test_all_stacks_dry_run() {
@@ -727,6 +727,14 @@ test_all_stack_docs_exist() {
     else
         log_fail "ADMIN.md absent"
     fi
+    for f in NETSKOPE-APPLE-IT.md CHECKLIST-IT-FLUTTER.md DEV-IOS-XCODE.md INTUNE.md; do
+        if [[ -f "$PROJECT_DIR/docs/$f" ]]; then
+            [[ "$VERBOSE" == true ]] && echo "  ok: $f"
+        else
+            log_fail "doc IT manquante: docs/$f"
+            docs_missing=true
+        fi
+    done
 }
 
 test_rollback_shell_profile() {
@@ -958,7 +966,7 @@ test_help() {
 }
 
 seed_compliant_fixture() {
-    local manifest_version="${1:-4.3.0}"
+    local manifest_version="${1:-1.0.0}"
     local stack entries="" stack_name
 
     source_libs
@@ -1008,9 +1016,9 @@ test_version_lt() {
     log_test "version_lt (semver)"
     source_all_libs
 
-    assert_success "4.2.0 < 4.3.0" version_lt 4.2.0 4.3.0
-    assert_failure "4.3.0 not < 4.3.0" version_lt 4.3.0 4.3.0
-    assert_failure "4.3.0 not < 4.2.0" version_lt 4.3.0 4.2.0
+    assert_success "0.9.0 < 1.0.0" version_lt 0.9.0 1.0.0
+    assert_failure "1.0.0 not < 1.0.0" version_lt 1.0.0 1.0.0
+    assert_failure "1.0.0 not < 0.9.0" version_lt 1.0.0 0.9.0
 }
 
 test_compliance_not_installed() {
@@ -1027,7 +1035,7 @@ test_compliance_not_installed() {
 
 test_compliance_compliant() {
     log_test "--compliance installation complète (exit 0)"
-    seed_compliant_fixture "4.3.0"
+    seed_compliant_fixture "1.0.0"
 
     local exit_code=0 output
     output="$(run_install --compliance --json 2>&1)" || exit_code=$?
@@ -1039,7 +1047,7 @@ test_compliance_compliant() {
 
 test_compliance_outdated_version() {
     log_test "--compliance version manifest obsolète (exit 1)"
-    seed_compliant_fixture "4.0.0"
+    seed_compliant_fixture "0.9.0"
 
     local exit_code=0 output
     output="$(run_install --compliance --json 2>&1)" || exit_code=$?
@@ -1050,7 +1058,7 @@ test_compliance_outdated_version() {
 
 test_compliance_json_fields() {
     log_test "--compliance --json champs requis"
-    seed_compliant_fixture "4.3.0"
+    seed_compliant_fixture "1.0.0"
 
     local output
     output="$(run_install --compliance --json 2>&1)"
@@ -1086,6 +1094,33 @@ test_docs_intune() {
     assert_contains "proactive remediation" "$content" "Proactive Remediation"
     assert_contains "compliance json" "$content" "--compliance --json"
     assert_contains "intune-detect" "$content" "intune-detect.sh"
+    assert_contains "netskope apple" "$content" "NETSKOPE-APPLE-IT"
+}
+
+test_it_flutter_docs() {
+    log_test "documentation IT Flutter (Apple, checklist, dev iOS)"
+    local f content docs_missing=false
+
+    for f in NETSKOPE-APPLE-IT.md CHECKLIST-IT-FLUTTER.md DEV-IOS-XCODE.md; do
+        if [[ -f "$PROJECT_DIR/docs/$f" ]]; then
+            log_pass "$f présent"
+        else
+            log_fail "$f absent"
+            docs_missing=true
+        fi
+    done
+
+    [[ "$docs_missing" == true ]] && return 0
+
+    content="$(cat "$PROJECT_DIR/docs/NETSKOPE-APPLE-IT.md")"
+    assert_contains "certificate pinning" "$content" "certificate pinning"
+    assert_contains "Apple App Store CPA" "$content" "Apple App Store"
+
+    content="$(cat "$PROJECT_DIR/docs/CHECKLIST-IT-FLUTTER.md")"
+    assert_contains "phase B" "$content" "Phase B"
+
+    content="$(cat "$PROJECT_DIR/docs/DEV-IOS-XCODE.md")"
+    assert_contains "deux volets" "$content" "Deux volets"
 }
 
 test_build_release() {
@@ -1095,7 +1130,7 @@ test_build_release() {
     source_libs
     version="$SCRIPT_VERSION"
     output="$("$PROJECT_DIR/scripts/build-release.sh" 2>&1)"
-    archive="$PROJECT_DIR/dist/gct-${version}.tar.gz"
+    archive="$PROJECT_DIR/dist/mnd-${version}.tar.gz"
 
     if [[ -f "$archive" && -f "${archive}.sha256" ]]; then
         log_pass "archive et checksum créés"
@@ -1319,7 +1354,7 @@ test_gradle_e2e_real_install() {
     fi
 
     assert_success "truststore PKCS12 créé" test -f "$TRUSTSTORE_FILE"
-    assert_contains "gradle.properties configuré" "$(cat "$GRADLE_PROPERTIES")" "gradle-corporate-truststore"
+    assert_contains "gradle.properties configuré" "$(cat "$GRADLE_PROPERTIES")" "macos-netskope-dev"
 
     run_install --rollback --yes >/dev/null 2>&1 || true
     log_pass "rollback E2E exécuté"
@@ -1382,7 +1417,7 @@ main() {
     parse_args "$@"
 
     echo "======================================================"
-    echo " gradle-corporate-truststore — tests automatisés"
+    echo " macos-netskope-dev — tests automatisés"
     echo "======================================================"
     echo
 
@@ -1450,6 +1485,8 @@ main() {
     test_intune_scripts_executable
     echo
     test_docs_intune
+    echo
+    test_it_flutter_docs
     echo
     test_build_release
     echo
