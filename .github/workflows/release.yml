@@ -1,0 +1,27 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build archive and pkg
+        run: |
+          chmod +x scripts/*.sh install.sh
+          ./scripts/build-release.sh
+          ./scripts/build-pkg.sh
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-netskope-dev-dist
+          path: |
+            dist/mnd-*.tar.gz
+            dist/mnd-*.tar.gz.sha256
+            dist/macos-netskope-dev-*.pkg
