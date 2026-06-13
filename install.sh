@@ -33,6 +33,7 @@ source "$SCRIPT_DIR/lib/shell-profile.sh"
 source "$SCRIPT_DIR/lib/tls-verify.sh"
 source "$SCRIPT_DIR/lib/stacks.sh"
 source "$SCRIPT_DIR/lib/rollback.sh"
+source "$SCRIPT_DIR/lib/compliance.sh"
 
 STORE_PASSWORD="${GCT_STORE_PASSWORD:-${TRUSTSTORE_PASSWORD:-$DEFAULT_STORE_PASSWORD}}"
 MANIFEST_ENTRIES=()
@@ -43,6 +44,8 @@ TLS_DISCOVERY_HOST="repo.maven.apache.org:443"
 DO_ROLLBACK=false
 LIST_NETSKOPE=false
 SHOW_STATUS=false
+SHOW_COMPLIANCE=false
+COMPLIANCE_JSON=false
 SHOW_DOCS=""
 INSTALL_ALL=false
 INCLUDE_SIMULATOR=false
@@ -81,6 +84,7 @@ Usage :
   $0 --dart --git --netskope       Stacks au choix
   $0 --docs [STACK]                Documentation d'une stack
   $0 --status                      État de la configuration
+  $0 --compliance [--json]         Conformité Intune/MDM (exit 0/1/2)
   $0 --rollback                    Restauration
 
 Développeur (sur son propre compte) :
@@ -131,8 +135,11 @@ Autres options :
   --yes               Non interactif
   --no-auto-rollback  Désactive le rollback auto en cas d'échec
   --as-user LOGIN     Admin : exécuter pour le compte LOGIN (ex. jdupont)
+  --compliance        Évalue la conformité (Intune Proactive Remediation)
+  --json              Sortie JSON (avec --compliance)
 
-Documentation : docs/README.md  |  docs/ADMIN.md  |  ./install.sh --docs STACK
+Documentation : docs/README.md  |  docs/ADMIN.md  |  docs/INTUNE.md
+                ./install.sh --docs STACK
 
 Fichiers :
 
@@ -197,6 +204,14 @@ parse_args() {
                 SHOW_STATUS=true
                 shift
                 ;;
+            --compliance)
+                SHOW_COMPLIANCE=true
+                shift
+                ;;
+            --json)
+                COMPLIANCE_JSON=true
+                shift
+                ;;
             --docs)
                 if [[ -n "${2:-}" && "$2" != --* ]]; then
                     SHOW_DOCS="$2"
@@ -257,7 +272,8 @@ parse_args() {
 }
 
 validate_mode() {
-    if [[ "$DO_ROLLBACK" == true || "$LIST_NETSKOPE" == true || "$SHOW_STATUS" == true || -n "$SHOW_DOCS" ]]; then
+    if [[ "$DO_ROLLBACK" == true || "$LIST_NETSKOPE" == true || "$SHOW_STATUS" == true \
+        || "$SHOW_COMPLIANCE" == true || -n "$SHOW_DOCS" ]]; then
         return 0
     fi
 
@@ -430,6 +446,12 @@ main() {
     if [[ "$SHOW_STATUS" == true ]]; then
         print_install_status
         exit 0
+    fi
+
+    if [[ "$SHOW_COMPLIANCE" == true ]]; then
+        local compliance_exit=0
+        run_compliance_check || compliance_exit=$?
+        exit "$compliance_exit"
     fi
 
     if [[ "$DO_ROLLBACK" == true ]]; then

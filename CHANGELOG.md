@@ -1,5 +1,18 @@
 # Changelog
 
+## [4.3.0] — 2026-06-13
+
+### Added
+- `--compliance [--json]` : évaluation conformité Intune/MDM (exit 0/1/2)
+- `lib/compliance.sh` : détection version, stacks, empreinte CA, blocs gradle/shell
+- `scripts/intune-detect.sh` : script de détection Proactive Remediation
+- `scripts/intune-remediate.sh` : remédiation avec attente Netskope et `--login-only`
+- `scripts/build-release.sh` : archive `dist/gct-VERSION.tar.gz` + SHA256
+- `scripts/intune-deploy-package.sh` : déploiement archive sur poste
+- `scripts/install-login-agent.sh` : LaunchDaemon vérification post-connexion
+- `docs/INTUNE.md` : guide complet Microsoft Intune
+- Rapport `compliance-report.json` + logs `/var/log/gradle-corporate-truststore/`
+
 ## [4.2.0] — 2026-06-13
 
 ### Added

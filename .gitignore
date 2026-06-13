@@ -10,7 +10,7 @@
 *.swo
 *~
 
-# Tests / temporaires locaux
+dist/
 *.log
 /tmp/
 

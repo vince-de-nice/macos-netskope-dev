@@ -3,7 +3,7 @@
 #
 # Fonctions communes : logging, erreurs, privilèges, chemins, état.
 
-: "${SCRIPT_VERSION:=4.2.0}"
+: "${SCRIPT_VERSION:=4.3.0}"
 : "${SCRIPT_DIR:=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
 DEFAULT_STORE_PASSWORD="changeit"

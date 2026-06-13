@@ -11,6 +11,7 @@ ADMIN_CERT_NAME=""
 ADMIN_TLS_HOST="repo.maven.apache.org:443"
 ADMIN_DO_ROLLBACK=false
 ADMIN_SHOW_STATUS=false
+ADMIN_SHOW_COMPLIANCE=false
 ADMIN_SHOW_DOCS=""
 ADMIN_LIST_NETSKOPE=false
 ADMIN_DRY_RUN=false
@@ -45,6 +46,7 @@ preparse_install_flags() {
     ADMIN_TLS_HOST="repo.maven.apache.org:443"
     ADMIN_DO_ROLLBACK=false
     ADMIN_SHOW_STATUS=false
+    ADMIN_SHOW_COMPLIANCE=false
     ADMIN_SHOW_DOCS=""
     ADMIN_LIST_NETSKOPE=false
     ADMIN_DRY_RUN=false
@@ -73,6 +75,9 @@ preparse_install_flags() {
             --status)
                 ADMIN_SHOW_STATUS=true
                 ;;
+            --compliance)
+                ADMIN_SHOW_COMPLIANCE=true
+                ;;
             --docs)
                 if [[ -n "${args[$((i + 1))]:-}" && "${args[$((i + 1))]}" != --* ]]; then
                     ADMIN_SHOW_DOCS="${args[$((i + 1))]}"
@@ -98,6 +103,7 @@ preparse_install_flags() {
 admin_install_requires_cert_export() {
     [[ "$ADMIN_DO_ROLLBACK" == true ]] && return 1
     [[ "$ADMIN_SHOW_STATUS" == true ]] && return 1
+    [[ "$ADMIN_SHOW_COMPLIANCE" == true ]] && return 1
     [[ -n "$ADMIN_SHOW_DOCS" ]] && return 1
     [[ "$ADMIN_LIST_NETSKOPE" == true ]] && return 1
     [[ -n "$ADMIN_INSTALL_MODE" ]]

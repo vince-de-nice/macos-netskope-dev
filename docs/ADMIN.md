@@ -91,6 +91,9 @@ Demander au développeur d'**ouvrir un nouveau terminal** ou de lancer `source ~
 
 ## Scénario 3 — Déploiement MDM / Jamf / Intune
 
+> **Microsoft Intune :** guide complet pas-à-pas → **[INTUNE.md](INTUNE.md)**  
+> (Proactive Remediation, package versionné, LaunchDaemon, `--compliance --json`).
+
 Exécuter le script **via l'admin système** pour exporter le Keychain, puis configurer l'utilisateur connecté :
 
 ```bash

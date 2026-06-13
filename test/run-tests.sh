@@ -200,7 +200,8 @@ test_bash_syntax() {
     log_test "Syntaxe bash (bash -n)"
     local script failed=false
 
-    for script in "$PROJECT_DIR"/install.sh "$PROJECT_DIR"/lib/*.sh "$PROJECT_DIR"/test/run-tests.sh; do
+    for script in "$PROJECT_DIR"/install.sh "$PROJECT_DIR"/lib/*.sh \
+        "$PROJECT_DIR"/scripts/*.sh "$PROJECT_DIR"/test/run-tests.sh; do
         if bash -n "$script" 2>/dev/null; then
             [[ "$VERBOSE" == true ]] && echo "  ok: $(basename "$script")"
         else
@@ -221,7 +222,8 @@ test_shellcheck() {
     fi
 
     local script failed=false sc_output
-    for script in "$PROJECT_DIR"/install.sh "$PROJECT_DIR"/lib/*.sh "$PROJECT_DIR"/test/run-tests.sh; do
+    for script in "$PROJECT_DIR"/install.sh "$PROJECT_DIR"/lib/*.sh \
+        "$PROJECT_DIR"/scripts/*.sh "$PROJECT_DIR"/test/run-tests.sh; do
         sc_output="$(cd "$PROJECT_DIR" && shellcheck -S warning -x "$script" 2>&1)" || true
         if [[ -z "$sc_output" ]]; then
             [[ "$VERBOSE" == true ]] && echo "  ok: $(basename "$script")"
@@ -270,6 +272,8 @@ source_all_libs() {
     source "$PROJECT_DIR/lib/stacks.sh"
     # shellcheck disable=SC1091
     source "$PROJECT_DIR/lib/tls-verify.sh"
+    # shellcheck disable=SC1091
+    source "$PROJECT_DIR/lib/compliance.sh"
 }
 
 tests_require_commands() {
@@ -532,8 +536,9 @@ set_install_paths() {
 
 run_install() {
     set_install_paths
-    mkdir -p "$STATE_DIR"
+    mkdir -p "$STATE_DIR" "$INSTALL_HOME"
     env \
+        HOME="$INSTALL_HOME" \
         GRADLE_DIR="$GRADLE_DIR" \
         TRUSTSTORE_DIR="$TRUSTSTORE_DIR" \
         TRUSTSTORE_FILE="$TRUSTSTORE_FILE" \
@@ -949,6 +954,155 @@ test_help() {
     assert_contains "option --as-user" "$output" "--as-user"
     assert_contains "option --force" "$output" "--force"
     assert_contains "mention admin doc" "$output" "ADMIN.md"
+    assert_contains "option --compliance" "$output" "--compliance"
+}
+
+seed_compliant_fixture() {
+    local manifest_version="${1:-4.3.0}"
+    local stack entries="" stack_name
+
+    source_libs
+    set_install_paths
+    export HOME="$INSTALL_HOME"
+    mkdir -p "$GRADLE_DIR" "$STATE_DIR"
+    export SHELL_PROFILE_OVERRIDE="$INSTALL_HOME/.zshrc"
+
+    echo "pkcs12-mock" > "$TRUSTSTORE_FILE"
+    create_mock_pem "$CA_BUNDLE_FILE" "Netskope Root CA"
+    local fp
+    fp="$(shasum -a 256 "$CA_BUNDLE_FILE" | awk '{print $1}')"
+
+    cat > "$GRADLE_PROPERTIES" <<EOF
+$MARKER_BEGIN
+org.gradle.jvmargs=-Djavax.net.ssl.trustStore=$TRUSTSTORE_FILE
+$MARKER_END
+EOF
+
+    cat > "$SHELL_PROFILE_OVERRIDE" <<EOF
+$MARKER_BEGIN
+export NODE_EXTRA_CA_CERTS="$CA_BUNDLE_FILE"
+$MARKER_END
+EOF
+
+    for stack_name in gradle shell dart git node python ruby curl gcloud aws; do
+        entries+="    \"stack_${stack_name}\": \"configured\""
+        entries+=","
+        entries+=$'\n'
+    done
+    entries="${entries%,*}"
+
+    cat > "$MANIFEST_FILE" <<EOF
+{
+  "version": "${manifest_version}",
+  "updated_at": "2026-06-13T12:00:00Z",
+  "truststore_file": "$TRUSTSTORE_FILE",
+  "entries": {
+${entries},
+    "ca_fingerprint": "$fp"
+  }
+}
+EOF
+}
+
+test_version_lt() {
+    log_test "version_lt (semver)"
+    source_all_libs
+
+    assert_success "4.2.0 < 4.3.0" version_lt 4.2.0 4.3.0
+    assert_failure "4.3.0 not < 4.3.0" version_lt 4.3.0 4.3.0
+    assert_failure "4.3.0 not < 4.2.0" version_lt 4.3.0 4.2.0
+}
+
+test_compliance_not_installed() {
+    log_test "--compliance sans installation (exit 1)"
+    set_install_paths
+    export HOME="$INSTALL_HOME"
+    rm -rf "$INSTALL_HOME"
+    mkdir -p "$INSTALL_HOME"
+
+    local exit_code=0
+    run_install --compliance >/dev/null 2>&1 || exit_code=$?
+    assert_eq "exit needs_remediation" "1" "$exit_code"
+}
+
+test_compliance_compliant() {
+    log_test "--compliance installation complète (exit 0)"
+    seed_compliant_fixture "4.3.0"
+
+    local exit_code=0 output
+    output="$(run_install --compliance --json 2>&1)" || exit_code=$?
+
+    assert_eq "exit conforme" "0" "$exit_code"
+    assert_contains "json compliant true" "$output" '"compliant": true'
+    assert_contains "json status compliant" "$output" '"status": "compliant"'
+}
+
+test_compliance_outdated_version() {
+    log_test "--compliance version manifest obsolète (exit 1)"
+    seed_compliant_fixture "4.0.0"
+
+    local exit_code=0 output
+    output="$(run_install --compliance --json 2>&1)" || exit_code=$?
+
+    assert_eq "exit non conforme" "1" "$exit_code"
+    assert_contains "reason version" "$output" "script_version_outdated"
+}
+
+test_compliance_json_fields() {
+    log_test "--compliance --json champs requis"
+    seed_compliant_fixture "4.3.0"
+
+    local output
+    output="$(run_install --compliance --json 2>&1)"
+
+    assert_contains "script_version" "$output" '"script_version":'
+    assert_contains "configured_stacks" "$output" '"configured_stacks":'
+    assert_contains "expected_stacks" "$output" '"expected_stacks":'
+    assert_contains "checked_at" "$output" '"checked_at":'
+}
+
+test_intune_scripts_executable() {
+    log_test "scripts Intune exécutables"
+    local script
+    for script in intune-detect.sh intune-remediate.sh build-release.sh install-login-agent.sh intune-deploy-package.sh; do
+        if [[ -x "$PROJECT_DIR/scripts/$script" ]]; then
+            log_pass "$script exécutable"
+        else
+            log_fail "$script non exécutable"
+        fi
+    done
+}
+
+test_docs_intune() {
+    log_test "docs/INTUNE.md"
+    local doc="$PROJECT_DIR/docs/INTUNE.md"
+    if [[ ! -f "$doc" ]]; then
+        log_fail "INTUNE.md absent"
+        return
+    fi
+    log_pass "fichier présent"
+    local content
+    content="$(cat "$doc")"
+    assert_contains "proactive remediation" "$content" "Proactive Remediation"
+    assert_contains "compliance json" "$content" "--compliance --json"
+    assert_contains "intune-detect" "$content" "intune-detect.sh"
+}
+
+test_build_release() {
+    log_test "scripts/build-release.sh"
+    local output version archive
+
+    source_libs
+    version="$SCRIPT_VERSION"
+    output="$("$PROJECT_DIR/scripts/build-release.sh" 2>&1)"
+    archive="$PROJECT_DIR/dist/gct-${version}.tar.gz"
+
+    if [[ -f "$archive" && -f "${archive}.sha256" ]]; then
+        log_pass "archive et checksum créés"
+    else
+        log_fail "build-release n'a pas produit dist/"
+        [[ "$VERBOSE" == true ]] && echo "$output" >&2
+    fi
 }
 
 test_docs_admin() {
@@ -1290,6 +1444,22 @@ main() {
     test_load_manifest_missing
     echo
     test_configure_gradle_properties_real
+    echo
+    test_compliance_json_fields
+    echo
+    test_intune_scripts_executable
+    echo
+    test_docs_intune
+    echo
+    test_build_release
+    echo
+    test_version_lt
+    echo
+    test_compliance_not_installed
+    echo
+    test_compliance_compliant
+    echo
+    test_compliance_outdated_version
     echo
     test_help
     echo

@@ -16,7 +16,7 @@ jobs:
         run: brew install shellcheck
 
       - name: shellcheck
-        run: shellcheck -S warning -x install.sh lib/*.sh test/run-tests.sh
+        run: shellcheck -S warning -x install.sh lib/*.sh scripts/*.sh test/run-tests.sh
 
       - name: Run test suite
         run: ./test/run-tests.sh

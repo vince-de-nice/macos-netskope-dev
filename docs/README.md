@@ -8,6 +8,7 @@ Configuration TLS Netskope pour le développement **Flutter sur macOS d'entrepri
 |------|----------|---------------|
 | **Développeur** | Ce README | `./install.sh --all --netskope --yes` |
 | **Administrateur IT** | **[ADMIN.md](ADMIN.md)** | `sudo ./install.sh --as-user <login> --all --netskope --yes` |
+| **Intune / Endpoint Manager** | **[INTUNE.md](INTUNE.md)** | Proactive Remediation + `scripts/intune-remediate.sh` |
 
 > **Important :** la configuration est **par utilisateur** (`~/.gradle`, `~/.zshrc`, git/npm globaux). Un admin qui lance le script sur son propre compte ne configure **pas** les postes des développeurs. Voir [ADMIN.md](ADMIN.md).
 

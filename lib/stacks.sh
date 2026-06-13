@@ -40,6 +40,7 @@ print_all_docs_index() {
     echo "Guides :"
     echo "  docs/README.md     — développeur"
     echo "  docs/ADMIN.md      — administrateur IT"
+    echo "  docs/INTUNE.md     — Microsoft Intune"
     echo
     echo "Stacks disponibles :"
     echo
