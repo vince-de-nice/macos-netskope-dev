@@ -1,0 +1,7 @@
+# Analyse des scripts bash du projet (install.sh source lib/*.sh).
+shell=bash
+external-sources=true
+
+# Variables globales exportées via source (consommées par install.sh).
+# SC2015/SC2001 : idiomes de test acceptables.
+disable=SC2034,SC2015,SC2001

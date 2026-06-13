@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Éditeurs / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Tests / temporaires locaux
+*.log
+/tmp/
+
+# Ne pas versionner les artefacts générés chez l'utilisateur (install.sh les crée dans ~/)
+# Le dépôt ne contient que les scripts et la documentation.
