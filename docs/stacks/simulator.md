@@ -63,3 +63,10 @@ Réglages simulateur → Général → Informations → **Réglages des certific
 - Tests API en simulateur derrière Netskope → **Oui**
 - UI-only sans réseau → **Non**
 - Inclus dans `--all` ? **Non** — explicite : `--all --simulator`
+
+## Références
+
+- [Apple Developer Forums — Certificat CA racine auto-signé dans le simulateur](https://developer.apple.com/forums/thread/124056) — `simctl keychain booted add-root-cert` et activation manuelle de la confiance
+- [Documentation Xcode — Exécuter une app dans le simulateur](https://developer.apple.com/documentation/xcode/running-your-app-in-simulator-or-on-a-device) — contexte simulateur iOS ; aide CLI : `xcrun simctl help keychain`
+- [Apple Platform Security — Certificats de confiance](https://support.apple.com/guide/security/trust-certificates-and-root-cas-sec509a87e405/web) — politique de confiance des CA racines sur les plateformes Apple
+- [Netskope — Configuring Developer Tools with SSL Inspection](https://community.netskope.com/next-gen-swg-2/configuring-developer-tools-with-netskope-ssl-inspection-8493) — contexte TLS en environnement inspecté (runtime simulateur)

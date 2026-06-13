@@ -49,3 +49,12 @@ Redémarrer les terminaux et IDE pour propager les variables.
 
 - Vous configurez `--dart`, `--python`, `--curl` ou `--aws` sans `--shell` → le script ajoute le bloc automatiquement
 - Installation `--all` → **inclus**
+
+## Références
+
+- [OpenSSL — Variables d'environnement (SSL_CERT_FILE, SSL_CERT_DIR)](https://docs.openssl.org/3.6/man7/openssl-env/) — magasin CA partagé par de nombreux CLI
+- [Node.js — Enterprise Network Configuration](https://nodejs.org/en/learn/http/enterprise-network-configuration) — `NODE_EXTRA_CA_CERTS`
+- [Requests — SSL cert verification](https://requests.readthedocs.io/en/latest/user/advanced/#ssl-cert-verification) — `REQUESTS_CA_BUNDLE` et repli `CURL_CA_BUNDLE`
+- [curl — TLS certificate verification](https://everything.curl.dev/usingcurl/tls/verify.html) — `CURL_CA_BUNDLE`
+- [AWS CLI — Variables d'environnement](https://docs.aws.amazon.com/cli/latest/userguide/cli-environment.html) — `AWS_CA_BUNDLE`
+- [Netskope — Configuring Developer Tools with SSL Inspection](https://community.netskope.com/next-gen-swg-2/configuring-developer-tools-with-netskope-ssl-inspection-8493) — vue d'ensemble des variables par outil

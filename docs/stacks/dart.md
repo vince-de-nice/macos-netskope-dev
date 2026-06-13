@@ -55,3 +55,10 @@ flutter pub get -v
 
 - Vous utilisez **uniquement** des dépendances déjà en cache et ne mettez jamais à jour Flutter → optionnel
 - Toute autre situation de dev Flutter normal → **recommandé**
+
+## Références
+
+- [Dart — Troubleshooting pub](https://dart.dev/tools/pub/troubleshoot) — erreurs réseau, proxy (`https_proxy`) et connectivité `pub.dev`
+- [Dart SDK — DART_VM_OPTIONS et flags VM](https://dart.googlesource.com/sdk.git/+/refs/tags/3.6.1/docs/Settings-VM-flags-in-standalone-executables.md) — passage de `--root-certs-file` via `DART_VM_OPTIONS`
+- [dart:io SecurityContext](https://api.dart.dev/stable/dart-io/SecurityContext-class.html) — contexte TLS programmatique (apps Flutter)
+- [Netskope — Configuring Developer Tools with SSL Inspection](https://community.netskope.com/next-gen-swg-2/configuring-developer-tools-with-netskope-ssl-inspection-8493) — section Dart / Flutter et Python 3.13+

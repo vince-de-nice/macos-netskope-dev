@@ -73,3 +73,10 @@ Le manifest fusionne l'état de chaque stack. Le `--rollback` restaure **toute**
 ```
 
 Restaure `gradle.properties` et supprime/restaure le truststore PKCS12.
+
+## Références
+
+- [Gradle — Build Environment Configuration](https://docs.gradle.org/current/userguide/build_environment.html) — propriétés `systemProp.*` et `org.gradle.jvmargs` dans `gradle.properties`
+- [Gradle — Daemon](https://docs.gradle.org/current/userguide/gradle_daemon.html) — propriétés JVM immuables (`javax.net.ssl.trustStore*`) ; redémarrer le daemon après modification
+- [Java JSSE — Customizing the Default Truststore](https://docs.oracle.com/javase/8/docs/technotes/guides/security/jsse/JSSERefGuide.html#Customizing) — `-Djavax.net.ssl.trustStore` et types PKCS12/JKS
+- [Netskope — Configuring Developer Tools with SSL Inspection](https://community.netskope.com/next-gen-swg-2/configuring-developer-tools-with-netskope-ssl-inspection-8493) — section Java / Maven / Gradle

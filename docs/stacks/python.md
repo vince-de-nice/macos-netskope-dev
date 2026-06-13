@@ -45,3 +45,10 @@ python3 -c "import urllib.request; urllib.request.urlopen('https://pypi.org')"
 
 - Workflow Flutter **sans Python** → **Non**
 - Scripts automation, CI local Python → **Oui**
+
+## Références
+
+- [pip — HTTPS Certificates](https://pip.pypa.io/en/stable/topics/https-certificates/) — `PIP_CERT`, `REQUESTS_CA_BUNDLE`, `SSL_CERT_FILE`, `CURL_CA_BUNDLE`
+- [Requests — SSL cert verification](https://requests.readthedocs.io/en/latest/user/advanced/#ssl-cert-verification) — `REQUESTS_CA_BUNDLE` (repli `CURL_CA_BUNDLE`)
+- [OpenSSL — Variables d'environnement](https://docs.openssl.org/3.6/man7/openssl-env/) — `SSL_CERT_FILE` / `SSL_CERT_DIR`
+- [Netskope — Configuring Developer Tools with SSL Inspection](https://community.netskope.com/next-gen-swg-2/configuring-developer-tools-with-netskope-ssl-inspection-8493) — section Python / pip et contraintes Python 3.13+

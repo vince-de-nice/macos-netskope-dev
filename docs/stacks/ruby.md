@@ -45,3 +45,10 @@ cd ios && SSL_CERT_FILE=$HOME/.gradle/macos-netskope-dev/nscacert_combined.pem p
 
 - Cible **iOS** ou **macOS** → **Oui**
 - Android uniquement → **Non**
+
+## Références
+
+- [OpenSSL — Variables d'environnement (`SSL_CERT_FILE`)](https://docs.openssl.org/3.6/man7/openssl-env/) — magasin CA utilisé par Ruby/OpenSSL (distinct du Keychain macOS)
+- [Ruby OpenSSL — SSLError et magasins de certificats](https://mislav.net/2013/07/ruby-openssl/) — `OpenSSL::X509::DEFAULT_CERT_FILE`, contournements proxy d'entreprise
+- [Netskope — Certificate Pinned Applications (DevTools)](https://docs.netskope.com/en/certificate-pinned-applications/) — Ruby/CocoaPods et contournements CPA Netskope
+- [Netskope — Configuring Developer Tools with SSL Inspection](https://community.netskope.com/next-gen-swg-2/configuring-developer-tools-with-netskope-ssl-inspection-8493) — section Ruby / CocoaPods

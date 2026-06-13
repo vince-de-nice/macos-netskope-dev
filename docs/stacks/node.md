@@ -40,3 +40,10 @@ firebase --version  # si installé
 
 - Vous utilisez **Firebase CLI**, **Melos** (npm), ou scripts Node dans le workflow → **Oui**
 - Flutter mobile pur sans outillage Node → **Non**
+
+## Références
+
+- [npm — Configuration `cafile`](https://docs.npmjs.com/cli/v11/using-npm/config#cafile) — bundle CA pour les requêtes HTTPS du registre npm
+- [Node.js — Enterprise Network Configuration](https://nodejs.org/en/learn/http/enterprise-network-configuration) — `NODE_EXTRA_CA_CERTS` (fichier PEM, chargé au démarrage du processus)
+- [Node.js — CLI `NODE_EXTRA_CA_CERTS`](https://nodejs.org/api/cli.html#node_extra_ca_certsfile) — référence API détaillée
+- [Netskope — Configuring Developer Tools with SSL Inspection](https://community.netskope.com/next-gen-swg-2/configuring-developer-tools-with-netskope-ssl-inspection-8493) — section Node.js / npm / Yarn

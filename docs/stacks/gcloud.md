@@ -40,3 +40,9 @@ gcloud config get-value core/custom_ca_certs_file
 
 - Vous n'utilisez pas gcloud → **Non**
 - Backend GCP ou ops infra avec gcloud → **Oui**
+
+## Références
+
+- [Google Cloud SDK — Proxy / firewall (custom CA)](https://cloud.google.com/sdk/docs/proxy-settings) — `gcloud config set core/custom_ca_certs_file` derrière un proxy MITM
+- [gcloud config set — `custom_ca_certs_file`](https://cloud.google.com/sdk/gcloud/reference/config/set) — référence de la propriété de configuration
+- [Netskope — Configuring Developer Tools with SSL Inspection](https://community.netskope.com/next-gen-swg-2/configuring-developer-tools-with-netskope-ssl-inspection-8493) — section Google Cloud SDK (gcloud)

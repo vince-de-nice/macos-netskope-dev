@@ -44,3 +44,9 @@ git ls-remote https://github.com/flutter/flutter.git HEAD
 - Développement **iOS** avec CocoaPods → **Oui**
 - Dépendances pub en `git:` → **Oui**
 - Projet Android sans pods ni deps git → optionnel
+
+## Références
+
+- [Git — git-config `http.sslCAInfo`](https://git-scm.com/docs/git-config#Documentation/git-config.txt-httpsslCAInfo) — chemin vers un fichier PEM de CA pour les connexions HTTPS
+- [Git — git-config `http.sslBackend`](https://git-scm.com/docs/git-config#Documentation/git-config.txt-httpsslBackend) — backend TLS (OpenSSL vs Secure Transport sur macOS)
+- [Netskope — Configuring Developer Tools with SSL Inspection](https://community.netskope.com/next-gen-swg-2/configuring-developer-tools-with-netskope-ssl-inspection-8493) — configuration Git en environnement inspecté

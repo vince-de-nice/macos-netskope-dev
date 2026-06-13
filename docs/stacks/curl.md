@@ -42,3 +42,10 @@ brew update
 
 - Environnement déjà installé et stable → optionnel
 - Installation initiale Mac / mises à jour Homebrew → **Recommandé**
+
+## Références
+
+- [curl — SSL Certificates](https://curl.se/docs/sslcerts.html) — fonctionnement des CA et bundles PEM
+- [curl — TLS certificate verification](https://everything.curl.dev/usingcurl/tls/verify.html) — variable `CURL_CA_BUNDLE` et vérification des certificats
+- [Homebrew — FAQ (proxy / certificats)](https://docs.brew.sh/FAQ#how-do-i-install-behind-a-proxy) — proxy et TLS derrière inspection SSL
+- [Netskope — Configuring Developer Tools with SSL Inspection](https://community.netskope.com/next-gen-swg-2/configuring-developer-tools-with-netskope-ssl-inspection-8493) — section cURL
