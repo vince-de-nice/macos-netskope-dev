@@ -35,13 +35,25 @@ source "$SCRIPT_DIR/lib/stacks.sh"
 source "$SCRIPT_DIR/lib/rollback.sh"
 source "$SCRIPT_DIR/lib/compliance.sh"
 
-STORE_PASSWORD="${MND_STORE_PASSWORD:-${TRUSTSTORE_PASSWORD:-$DEFAULT_STORE_PASSWORD}}"
+load_store_password() {
+    if [[ -n "${MND_STORE_PASSWORD:-}" ]]; then
+        STORE_PASSWORD="$MND_STORE_PASSWORD"
+    elif [[ -n "${MND_STORE_PASSWORD_FILE:-}" && -f "$MND_STORE_PASSWORD_FILE" ]]; then
+        STORE_PASSWORD="$(tr -d '[:space:]' < "$MND_STORE_PASSWORD_FILE")"
+        [[ -n "$STORE_PASSWORD" ]] || die "Fichier mot de passe vide : $MND_STORE_PASSWORD_FILE"
+    else
+        STORE_PASSWORD="${TRUSTSTORE_PASSWORD:-$DEFAULT_STORE_PASSWORD}"
+    fi
+}
+
+load_store_password
 MANIFEST_ENTRIES=()
 
 MODE=""
 CERT_NAME=""
 TLS_DISCOVERY_HOST="repo.maven.apache.org:443"
 DO_ROLLBACK=false
+ROLLBACK_STACK=""
 LIST_NETSKOPE=false
 SHOW_STATUS=false
 SHOW_COMPLIANCE=false
@@ -54,20 +66,8 @@ AUTO_ROLLBACK=true
 FORCE_DISCOVER_TLS=false
 
 SELECTED_STACKS=()
-
-# Stacks incluses dans --all (simulateur exclu par défaut).
-ALL_STACKS_DEFAULT=(
-    gradle
-    shell
-    dart
-    git
-    node
-    python
-    ruby
-    curl
-    gcloud
-    aws
-)
+SHELL_PROFILE_OVERRIDE=""
+CERT_FINGERPRINT=""
 
 usage() {
     cat <<EOF
@@ -113,6 +113,8 @@ Stacks (--all ou individuelles) :
   --gcloud      Google Cloud SDK
   --aws         AWS CLI : AWS_CA_BUNDLE
   --simulator   Simulateur iOS booté (certificats root)
+  --go          Go toolchain (SSL_CERT_FILE)
+  --rust        Rust/cargo (CARGO_HTTP_CAINFO)
 
 Source des certificats (obligatoire sauf --status/--docs/--rollback) :
 
@@ -128,7 +130,10 @@ Autres options :
   --tls-host H:PORT   Hôte pour --discover-tls
   --rollback          Restaure la configuration précédente
   --password PASS     Mot de passe truststore PKCS12 (défaut: changeit)
-                        Alternative : variable MND_STORE_PASSWORD
+                        Préférer MND_STORE_PASSWORD ou MND_STORE_PASSWORD_FILE
+  --shell-profile F   Profil shell cible (défaut: auto ~/.zshrc)
+  --cert-fingerprint FP  Certificat Netskope par empreinte SHA-256 (8+ car.)
+  --rollback-stack S  Rollback d'une stack (git, node, gcloud, shell, gradle)
   --skip-verify       Ignore les tests de connectivité
   --verbose           Logs détaillés
   --dry-run           Simulation
@@ -160,9 +165,27 @@ parse_args() {
                 INSTALL_ALL=true
                 shift
                 ;;
-            --gradle|--shell|--dart|--git|--node|--python|--ruby|--curl|--gcloud|--aws)
+            --gradle|--shell|--dart|--git|--node|--python|--ruby|--curl|--gcloud|--aws|--go|--rust)
                 SELECTED_STACKS+=("${1#--}")
                 shift
+                ;;
+            --shell-profile)
+                SHELL_PROFILE_OVERRIDE="${2:-}"
+                [[ -n "$SHELL_PROFILE_OVERRIDE" ]] || die "Option --shell-profile requiert un chemin."
+                export SHELL_PROFILE_OVERRIDE
+                shift 2
+                ;;
+            --cert-fingerprint)
+                CERT_FINGERPRINT="${2:-}"
+                [[ -n "$CERT_FINGERPRINT" ]] || die "Option --cert-fingerprint requiert une empreinte."
+                MODE="netskope"
+                shift 2
+                ;;
+            --rollback-stack)
+                ROLLBACK_STACK="${2:-}"
+                [[ -n "$ROLLBACK_STACK" ]] || die "Option --rollback-stack requiert un nom de stack."
+                DO_ROLLBACK=true
+                shift 2
                 ;;
             --simulator)
                 INCLUDE_SIMULATOR=true
@@ -265,8 +288,8 @@ parse_args() {
         fi
     fi
 
-    # Rétrocompatibilité : --netskope seul → gradle uniquement.
-    if ((${#SELECTED_STACKS[@]} == 0)) && [[ -n "$MODE" ]]; then
+    # Rétrocompatibilité : --netskope ou --cert-fingerprint seul → gradle uniquement.
+    if ((${#SELECTED_STACKS[@]} == 0)) && [[ -n "$MODE" || -n "$CERT_FINGERPRINT" ]]; then
         SELECTED_STACKS=("gradle")
     fi
 }
@@ -282,8 +305,8 @@ validate_mode() {
         exit 1
     }
 
-    [[ -n "$MODE" ]] ||
-        die "Source de certificats requise : --netskope, --cert ou --discover-tls --force"
+    [[ -n "$MODE" || -n "$CERT_FINGERPRINT" ]] ||
+        die "Source de certificats requise : --netskope, --cert, --cert-fingerprint ou --discover-tls --force"
 
     if [[ "$MODE" == "discover-tls" && "$FORCE_DISCOVER_TLS" != true ]]; then
         die "Option --discover-tls désactivée par défaut.
@@ -323,7 +346,11 @@ list_netskope_certs() {
 prepare_certificates() {
     case "$MODE" in
         netskope)
-            build_cert_export_list_netskope_auto
+            if [[ -n "$CERT_FINGERPRINT" ]]; then
+                build_cert_export_list_by_fingerprint "$CERT_FINGERPRINT"
+            else
+                build_cert_export_list_netskope_auto
+            fi
             ;;
         cert)
             build_cert_export_list_from_name "$CERT_NAME"
@@ -394,7 +421,7 @@ run_install() {
     require_commands security openssl sed awk grep
 
     if needs_certificate_export; then
-        ensure_sudo
+        [[ "$DRY_RUN" == true ]] || ensure_sudo
     fi
 
     if needs_gradle_stack; then
@@ -450,6 +477,7 @@ main() {
 
     if [[ "$SHOW_COMPLIANCE" == true ]]; then
         local compliance_exit=0
+        export COMPLIANCE_JSON="$COMPLIANCE_JSON"
         run_compliance_check || compliance_exit=$?
         exit "$compliance_exit"
     fi
@@ -457,7 +485,11 @@ main() {
     if [[ "$DO_ROLLBACK" == true ]]; then
         init_workdir
         reset_report
-        perform_rollback
+        if [[ -n "${ROLLBACK_STACK:-}" ]]; then
+            perform_rollback_stack "$ROLLBACK_STACK"
+        else
+            perform_rollback
+        fi
         echo
         echo "Rollback effectué. Consultez $REPORT_FILE"
         exit 0

@@ -3,7 +3,7 @@
 #
 # Fonctions communes : logging, erreurs, privilèges, chemins, état.
 
-: "${SCRIPT_VERSION:=1.0.0}"
+: "${SCRIPT_VERSION:=1.1.0}"
 : "${SCRIPT_DIR:=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 : "${PROJECT_NAME:=macos-netskope-dev}"
 
@@ -76,6 +76,10 @@ require_admin_for_keychain() {
     if ! sudo -v; then
         die "Privilèges administrateur requis pour accéder au trousseau système."
     fi
+}
+
+ensure_sudo() {
+    require_admin_for_keychain
 }
 
 file_has_marker_block() {
