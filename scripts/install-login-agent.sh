@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Installe un LaunchDaemon pour vérifier la conformité après connexion utilisateur.
+# Installe un LaunchDaemon ou LaunchAgent pour vérifier la conformité après connexion.
 #
 set -Eeuo pipefail
 
@@ -10,24 +10,44 @@ source "$SCRIPT_DIR/lib/intune-log.sh"
 
 MND_INSTALL_DIR="${MND_INSTALL_DIR:-/usr/local/share/macos-netskope-dev}"
 PLIST_LABEL="com.macos-netskope-dev.login"
-PLIST_PATH="/Library/LaunchDaemons/${PLIST_LABEL}.plist"
 CHECK_INTERVAL="${MND_LOGIN_CHECK_INTERVAL:-600}"
+AGENT_MODE="${MND_LOGIN_AGENT_MODE:-daemon}"
+PLIST_PATH=""
 
 usage() {
     cat <<EOF
-Usage: $(basename "$0") [--uninstall]
+Usage: $(basename "$0") [--uninstall] [--agent daemon|launchagent]
 
-Installe ou supprime le LaunchDaemon de vérification post-connexion.
+Installe ou supprime le job de vérification post-connexion.
 Doit s'exécuter en root.
 
-Le daemon exécute toutes les ${CHECK_INTERVAL}s :
+  --agent daemon       LaunchDaemon système (défaut)
+  --agent launchagent  LaunchAgent /Library/LaunchAgents (contexte utilisateur)
+
+Intervalle ${CHECK_INTERVAL}s :
   ${MND_INSTALL_DIR}/scripts/intune-remediate.sh --login-only
 
 Variables :
   MND_INSTALL_DIR           Chemin d'installation
   MND_LOGIN_CHECK_INTERVAL  Intervalle en secondes (défaut: 600)
+  MND_LOGIN_AGENT_MODE      daemon | launchagent
 
 EOF
+}
+
+resolve_plist_path() {
+    case "$AGENT_MODE" in
+        daemon)
+            PLIST_PATH="/Library/LaunchDaemons/${PLIST_LABEL}.plist"
+            ;;
+        launchagent)
+            PLIST_PATH="/Library/LaunchAgents/${PLIST_LABEL}.plist"
+            ;;
+        *)
+            intune_log_error "Mode agent inconnu : $AGENT_MODE"
+            exit 2
+            ;;
+    esac
 }
 
 write_plist() {
@@ -57,7 +77,10 @@ EOF
 }
 
 install_daemon() {
+    local domain="system"
+
     intune_ensure_log_dir
+    resolve_plist_path
 
     if [[ ! -x "${MND_INSTALL_DIR}/scripts/intune-remediate.sh" ]]; then
         intune_log_error "Script introuvable : ${MND_INSTALL_DIR}/scripts/intune-remediate.sh"
@@ -68,36 +91,61 @@ install_daemon() {
     chmod 644 "$PLIST_PATH"
     chown root:wheel "$PLIST_PATH"
 
-    launchctl bootout "system/${PLIST_LABEL}" 2>/dev/null || true
-    launchctl bootstrap system "$PLIST_PATH"
-    launchctl enable "system/${PLIST_LABEL}"
+    launchctl bootout "${domain}/${PLIST_LABEL}" 2>/dev/null || true
+    launchctl bootstrap "$domain" "$PLIST_PATH"
+    launchctl enable "${domain}/${PLIST_LABEL}"
 
-    intune_log_info "LaunchDaemon installé : $PLIST_PATH (intervalle ${CHECK_INTERVAL}s)"
+    intune_log_info "Job installé ($AGENT_MODE) : $PLIST_PATH (intervalle ${CHECK_INTERVAL}s)"
 }
 
 uninstall_daemon() {
+    resolve_plist_path
     launchctl bootout "system/${PLIST_LABEL}" 2>/dev/null || true
+    launchctl bootout "gui/$(id -u 2>/dev/null || echo 0)/${PLIST_LABEL}" 2>/dev/null || true
     rm -f "$PLIST_PATH"
-    intune_log_info "LaunchDaemon supprimé."
+    rm -f "/Library/LaunchDaemons/${PLIST_LABEL}.plist"
+    rm -f "/Library/LaunchAgents/${PLIST_LABEL}.plist"
+    intune_log_info "Job supprimé."
 }
 
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --uninstall)
+                UNINSTALL=true
+                shift
+                ;;
+            --agent)
+                AGENT_MODE="${2:-daemon}"
+                shift 2
+                ;;
+            -h|--help)
+                usage
+                exit 0
+                ;;
+            *)
+                intune_log_error "Option inconnue : $1"
+                exit 2
+                ;;
+        esac
+    done
+}
+
+UNINSTALL=false
+
 main() {
+    parse_args "$@"
+
     if [[ "$EUID" -ne 0 ]]; then
         intune_log_error "Ce script doit s'exécuter en root."
         exit 2
     fi
 
-    case "${1:-install}" in
-        --uninstall)
-            uninstall_daemon
-            ;;
-        -h|--help)
-            usage
-            ;;
-        *)
-            install_daemon
-            ;;
-    esac
+    if [[ "$UNINSTALL" == true ]]; then
+        uninstall_daemon
+    else
+        install_daemon
+    fi
 }
 
 main "$@"

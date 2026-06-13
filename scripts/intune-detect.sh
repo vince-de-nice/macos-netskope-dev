@@ -23,6 +23,8 @@ Variables :
   MND_INSTALL_DIR          Chemin d'installation (défaut: /usr/local/share/macos-netskope-dev)
   MND_LOG_DIR              Journal (/var/log/macos-netskope-dev)
   MND_SKIP_IF_NO_USER=1    Exit 0 si aucun utilisateur console (défaut: 1)
+  MND_TARGET_USERS         Liste de logins (virgules) pour multi-user
+  MND_COMPLIANCE_STACKS    Stacks attendues (virgules) ou MND_COMPLIANCE_PROFILE
 
 EOF
 }
@@ -53,8 +55,9 @@ write_skip_json() {
     cat <<EOF
 {
   "status": "skipped",
-  "compliant": true,
+  "compliant": false,
   "reason": "$(printf '%s' "$reason" | sed 's/"/\\"/g')",
+  "run_id": "${MND_RUN_ID}",
   "checked_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 }
 EOF

@@ -4,11 +4,18 @@
 # Journalisation centralisée pour scripts Intune / MDM.
 
 MND_LOG_DIR="${MND_LOG_DIR:-/var/log/macos-netskope-dev}"
+MND_RUN_ID="${MND_RUN_ID:-mnd-$(date +%Y%m%d%H%M%S)-$$}"
 
 intune_ensure_log_dir() {
     if [[ "$EUID" -eq 0 ]]; then
         mkdir -p "$MND_LOG_DIR"
         chmod 755 "$MND_LOG_DIR"
+        if [[ ! -f "$MND_LOG_DIR/.logrotate_hint" ]]; then
+            cat > "$MND_LOG_DIR/.logrotate_hint" <<'EOF'
+# Exemple newsyslog (/etc/newsyslog.d/macos-netskope-dev.conf) :
+# /var/log/macos-netskope-dev/*.log  644  root  wheel  7  10240  *
+EOF
+        fi
     fi
 }
 
@@ -16,7 +23,7 @@ intune_log() {
     local level="$1"
     local message
     shift
-    message="[$(date '+%Y-%m-%d %H:%M:%S')] [$level] $*"
+    message="[$(date '+%Y-%m-%d %H:%M:%S')] [$MND_RUN_ID] [$level] $*"
 
     echo "$message"
     if [[ "$EUID" -eq 0 && -d "$MND_LOG_DIR" ]]; then
@@ -44,6 +51,21 @@ intune_get_console_user() {
         return 1
     fi
     echo "$user"
+}
+
+intune_list_target_users() {
+    local -a users=()
+    local item
+
+    if [[ -n "${MND_TARGET_USERS:-}" ]]; then
+        IFS=',' read -ra users <<< "${MND_TARGET_USERS// /}"
+        for item in "${users[@]}"; do
+            [[ -n "$item" ]] && echo "$item"
+        done
+        return 0
+    fi
+
+    intune_get_console_user || return 1
 }
 
 intune_resolve_user_home() {

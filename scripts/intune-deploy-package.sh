@@ -9,16 +9,44 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$SCRIPT_DIR/lib/intune-log.sh"
 
 MND_INSTALL_DIR="${MND_INSTALL_DIR:-/usr/local/share/macos-netskope-dev}"
+MND_VERIFY_CHECKSUM="${MND_VERIFY_CHECKSUM:-1}"
 ARCHIVE_PATH=""
+CHECKSUM_PATH=""
 
 usage() {
     cat <<EOF
-Usage: $(basename "$0") /chemin/vers/mnd-VERSION.tar.gz
+Usage: $(basename "$0") /chemin/vers/mnd-VERSION.tar.gz [checksum.sha256]
 
 Extrait l'archive dans ${MND_INSTALL_DIR} et rend les scripts exécutables.
+Vérifie le SHA256 si le fichier .sha256 est fourni ou adjacent (MND_VERIFY_CHECKSUM=1).
 Doit s'exécuter en root.
 
 EOF
+}
+
+verify_archive_checksum() {
+    local archive="$1"
+    local checksum_file="${2:-}"
+
+    [[ "$MND_VERIFY_CHECKSUM" == "1" ]] || return 0
+
+    if [[ -z "$checksum_file" ]]; then
+        checksum_file="${archive}.sha256"
+    fi
+
+    [[ -f "$checksum_file" ]] || {
+        intune_log_warn "Checksum absent : $checksum_file (déploiement sans vérification)"
+        return 0
+    }
+
+    intune_log_info "Vérification SHA256 : $checksum_file"
+    (
+        cd "$(dirname "$archive")" || exit 1
+        shasum -a 256 -c "$(basename "$checksum_file")"
+    ) || {
+        intune_log_error "Checksum invalide pour $(basename "$archive")"
+        return 1
+    }
 }
 
 main() {
@@ -30,12 +58,15 @@ main() {
     fi
 
     ARCHIVE_PATH="${1:-}"
+    CHECKSUM_PATH="${2:-}"
     [[ -f "$ARCHIVE_PATH" ]] || {
         usage
         exit 2
     }
 
     intune_ensure_log_dir
+    verify_archive_checksum "$ARCHIVE_PATH" "$CHECKSUM_PATH" || exit 2
+
     tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/mnd-deploy.XXXXXX")"
 
     tar -xzf "$ARCHIVE_PATH" -C "$tmp_dir"
