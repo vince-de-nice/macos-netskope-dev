@@ -1,28 +1,35 @@
 # Changelog
 
+## [4.2.0] — 2026-06-13
+
+### Added
+- `--status` enrichi : état réel des fichiers `[OK]`/`[ABSENT]`, détection installation incomplète
+- Option `--force` requise pour `--discover-tls`
+- Déduplication des alias certificats (suffixe empreinte SHA-256)
+- Support profil shell `~/.zprofile`
+- Fusion `DART_VM_OPTIONS` depuis tout le profil (y compris ancien bloc)
+
+### Changed
+- Stack `gcloud` / `simulator` : marquées configurées uniquement si action réelle effectuée
+- Rollback supprime aussi le cache `certs/`
+- Script MDM ADMIN.md utilise `sudo ./install.sh --as-user`
+- Option B admin (`sudo -u` seul) documentée comme limitée
+
+### Removed
+- Code mort `stack_is_selected`
+
 ## [4.1.0] — 2026-06-13
 
 ### Added
-- Fusion du manifest pour installations incrémentales (`--gradle` puis `--git`, etc.)
-- Export Keychain en root avant `--as-user` (déploiement admin sans sudo développeur)
-- Réutilisation du bundle CA si empreinte inchangée (`ca_fingerprint`)
-- Cache PEM dans `~/.gradle/corporate-truststore/certs/`
-- Fusion des `DART_VM_OPTIONS` existants avec `--root-certs-file`
-- Variable d'environnement `GCT_STORE_PASSWORD` pour le mot de passe truststore
-- Tests : manifest merge, DART_VM_OPTIONS, bundle reuse, admin preparse
-- CI GitHub Actions (shellcheck + tests sur macOS)
-- LICENSE (MIT)
-
-### Changed
-- Le manifest ne stocke plus `store_password` en clair
-- Sauvegardes gradle/shell/truststore conservées lors d'installations incrémentales
-- Documentation admin, Gradle et Dart mises à jour
-
-### Removed
-- Code mort `build_ca_bundle_from_keychain_combined`
+- Fusion du manifest pour installations incrémentales
+- Export Keychain en root avant `--as-user`
+- Réutilisation du bundle CA si empreinte inchangée
+- Fusion des `DART_VM_OPTIONS` existants
+- Variable `GCT_STORE_PASSWORD`
+- CI GitHub Actions, LICENSE MIT
 
 ## [4.0.0] — 2026-06-13
 
 - Support multi-stacks (`--all`, 11 stacks)
 - Mode admin `--as-user`
-- Documentation complète et suite de tests (107+)
+- Documentation complète et suite de tests

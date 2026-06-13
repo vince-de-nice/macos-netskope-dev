@@ -3,7 +3,7 @@
 #
 # Fonctions communes : logging, erreurs, privilèges, chemins, état.
 
-: "${SCRIPT_VERSION:=4.1.0}"
+: "${SCRIPT_VERSION:=4.2.0}"
 : "${SCRIPT_DIR:=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
 DEFAULT_STORE_PASSWORD="changeit"
@@ -77,6 +77,31 @@ ensure_sudo() {
     fi
 }
 
+file_exists_label() {
+    local path="$1"
+
+    if [[ -f "$path" && -s "$path" ]]; then
+        echo "OK"
+    elif [[ -f "$path" ]]; then
+        echo "VIDE"
+    else
+        echo "ABSENT"
+    fi
+}
+
+gradle_has_generated_block() {
+    [[ -f "${GRADLE_DIR}/gradle.properties" ]] &&
+        grep -q "^${MARKER_BEGIN}$" "${GRADLE_DIR}/gradle.properties" 2>/dev/null
+}
+
+shell_has_generated_block() {
+    local profile=""
+
+    detect_shell_profile
+    profile="$SHELL_PROFILE_FILE"
+    [[ -f "$profile" ]] && grep -q "^${MARKER_BEGIN}$" "$profile" 2>/dev/null
+}
+
 confirm_or_die() {
     local prompt="$1"
     if [[ "$NON_INTERACTIVE" == true ]]; then
@@ -122,6 +147,30 @@ sanitize_alias() {
         tr '[:upper:]' '[:lower:]' |
         tr ' ' '-' |
         tr -cd 'a-z0-9._-'
+}
+
+USED_CERT_ALIASES=()
+
+ensure_unique_alias() {
+    local base="$1"
+    local pem_file="${2:-}"
+    local alias="$base"
+    local used fp_suffix
+
+    if ((${#USED_CERT_ALIASES[@]} > 0)); then
+        for used in "${USED_CERT_ALIASES[@]}"; do
+            [[ "$used" == "$alias" ]] || continue
+            [[ -n "$pem_file" && -f "$pem_file" ]] ||
+                die "Alias certificat en collision sans fichier PEM : $base"
+            fp_suffix="$(openssl x509 -in "$pem_file" -noout -fingerprint -sha256 2>/dev/null |
+                sed 's/sha256 Fingerprint=//I' | tr -d ':' | cut -c1-8)"
+            alias="${base}-${fp_suffix}"
+            break
+        done
+    fi
+
+    USED_CERT_ALIASES+=("$alias")
+    RESOLVED_CERT_ALIAS="$alias"
 }
 
 json_escape() {

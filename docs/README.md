@@ -89,7 +89,7 @@ Détails MDM, pièges (`sudo` sans `--as-user`), dépannage : **[ADMIN.md](ADMIN
 | `~/.gradle/corporate-truststore/corporate-truststore.p12` | Truststore JVM Gradle |
 | `~/.gradle/corporate-truststore/nscacert_combined.pem` | Bundle CA pour CLI |
 | `~/.gradle/gradle.properties` | JVM args Gradle |
-| `~/.zshrc` (bloc marqué) | Variables d'environnement |
+| Variables d'env | `~/.zshrc`, `~/.zprofile` ou `~/.bash_profile` (bloc marqué) |
 | `~/.gradle/corporate-truststore/state/manifest.json` | État pour rollback (fusionné à chaque stack) |
 
 ## Mot de passe truststore

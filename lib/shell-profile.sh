@@ -18,6 +18,11 @@ detect_shell_profile() {
         return 0
     fi
 
+    if [[ -f "$HOME/.zprofile" ]]; then
+        SHELL_PROFILE_FILE="$HOME/.zprofile"
+        return 0
+    fi
+
     if [[ -f "$HOME/.bash_profile" ]]; then
         SHELL_PROFILE_FILE="$HOME/.bash_profile"
         return 0
@@ -39,29 +44,17 @@ remove_profile_block_from_file() {
 
 extract_dart_vm_options_from_profile() {
     local file="$1"
-    local line value in_block=false
+    local line value
 
     [[ -f "$file" ]] || return 0
 
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        if [[ "$line" == "$MARKER_BEGIN" ]]; then
-            in_block=true
-            continue
-        fi
-        if [[ "$line" == "$MARKER_END" ]]; then
-            in_block=false
-            continue
-        fi
-        [[ "$in_block" == true ]] && continue
+    line="$(grep -E '^[[:space:]]*export[[:space:]]+DART_VM_OPTIONS=' "$file" 2>/dev/null | tail -1 || true)"
+    [[ -n "$line" ]] || return 0
 
-        if [[ "$line" =~ ^[[:space:]]*export[[:space:]]+DART_VM_OPTIONS= ]]; then
-            value="${line#export DART_VM_OPTIONS=}"
-            value="${value#\"}"
-            value="${value%\"}"
-            echo "$value"
-            return 0
-        fi
-    done < "$file"
+    value="${line#export DART_VM_OPTIONS=}"
+    value="${value#\"}"
+    value="${value%\"}"
+    echo "$value"
 }
 
 merge_dart_vm_options() {

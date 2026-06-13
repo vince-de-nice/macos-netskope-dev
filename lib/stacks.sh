@@ -156,10 +156,10 @@ configure_stack_gcloud() {
         fi
         log "gcloud configuré : core/custom_ca_certs_file → $CA_BUNDLE_FILE"
         report_line "gcloud: custom_ca_certs_file=$CA_BUNDLE_FILE"
+        mark_stack_configured "gcloud"
     else
-        warn "gcloud absent — configuration ignorée."
+        warn "gcloud absent — stack non configurée."
     fi
-    mark_stack_configured "gcloud"
 }
 
 configure_stack_aws() {
@@ -173,7 +173,7 @@ configure_stack_aws() {
 }
 
 configure_stack_simulator() {
-    local entry pem_file label booted
+    local entry pem_file label booted added=0
 
     ensure_ca_bundle_exists
     prepare_exported_certs_for_stacks
@@ -186,8 +186,6 @@ configure_stack_simulator() {
     booted="$(xcrun simctl list devices booted 2>/dev/null | grep -E 'Booted' || true)"
     if [[ -z "$booted" ]]; then
         warn "Aucun simulateur iOS démarré — démarrez un simulateur puis relancez --simulator."
-        warn "Les certificats root seront ajoutés au prochain run avec simulateur booté."
-        mark_stack_configured "simulator"
         return 0
     fi
 
@@ -198,20 +196,16 @@ configure_stack_simulator() {
             xcrun simctl keychain booted add-root-cert "$pem_file" 2>/dev/null ||
                 warn "Impossible d'ajouter '$label' au simulateur booté."
         fi
+        added=$((added + 1))
         log "Simulateur iOS : certificat root ajouté — $label"
         report_line "Simulator: added root cert $label"
     done
 
-    mark_stack_configured "simulator"
-}
-
-stack_is_selected() {
-    local needle="$1"
-    local s
-    for s in "${SELECTED_STACKS[@]}"; do
-        [[ "$s" == "$needle" ]] && return 0
-    done
-    return 1
+    if [[ "$added" -gt 0 || "$DRY_RUN" == true ]]; then
+        mark_stack_configured "simulator"
+    else
+        warn "Aucun certificat root Netskope trouvé pour le simulateur."
+    fi
 }
 
 configure_stack() {
@@ -326,19 +320,47 @@ rollback_configured_stacks() {
 }
 
 print_install_status() {
-    local stack doc_file configured
+    local stack doc_file configured manifest_version
+    local truststore_state bundle_state manifest_state
+    local configured_count=0 healthy=true
 
     echo "État de la configuration — v${SCRIPT_VERSION}"
     echo
+
+    truststore_state="$(file_exists_label "$TRUSTSTORE_FILE")"
+    bundle_state="$(file_exists_label "$CA_BUNDLE_FILE")"
+    manifest_state="$(file_exists_label "$MANIFEST_FILE")"
+
     echo "Fichiers :"
-    echo "  Truststore : $TRUSTSTORE_FILE"
-    echo "  Bundle PEM : $CA_BUNDLE_FILE"
-    echo "  Manifest   : $MANIFEST_FILE"
+    echo "  Truststore : $TRUSTSTORE_FILE  [$truststore_state]"
+    echo "  Bundle PEM : $CA_BUNDLE_FILE  [$bundle_state]"
+    echo "  Manifest   : $MANIFEST_FILE  [$manifest_state]"
+
+    if [[ "$manifest_state" == "OK" ]]; then
+        manifest_version="$(load_manifest_version 2>/dev/null || true)"
+        [[ -n "$manifest_version" ]] && echo "  Version manifest : $manifest_version"
+    fi
+
+    if gradle_has_generated_block; then
+        echo "  Gradle     : ${GRADLE_DIR}/gradle.properties  [OK — bloc configuré]"
+    elif [[ -f "${GRADLE_DIR}/gradle.properties" ]]; then
+        echo "  Gradle     : ${GRADLE_DIR}/gradle.properties  [SANS BLOC]"
+    else
+        echo "  Gradle     : ${GRADLE_DIR}/gradle.properties  [ABSENT]"
+    fi
+
+    if shell_has_generated_block; then
+        detect_shell_profile
+        echo "  Profil shell : $SHELL_PROFILE_FILE  [OK — bloc configuré]"
+    else
+        detect_shell_profile
+        echo "  Profil shell : $SHELL_PROFILE_FILE  [SANS BLOC]"
+    fi
     echo
 
-    if [[ ! -f "$MANIFEST_FILE" ]]; then
+    if [[ "$manifest_state" != "OK" ]]; then
         echo "Aucune installation détectée."
-        echo "Lancez : ./install.sh --all --netskope"
+        echo "Lancez : ./install.sh --all --netskope --yes"
         return 0
     fi
 
@@ -347,12 +369,38 @@ print_install_status() {
         configured="$(load_manifest_value "stack_${stack}" 2>/dev/null || true)"
         if [[ "$configured" == "configured" ]]; then
             echo "  [✓] $stack"
+            configured_count=$((configured_count + 1))
         else
             echo "  [ ] $stack"
         fi
         doc_file="$(stack_doc_file "$stack")"
         [[ -f "$doc_file" ]] && echo "      doc: ./install.sh --docs $stack"
     done
+    echo
+
+    if [[ "$configured_count" -eq 0 ]]; then
+        echo "⚠ Installation incomplète : manifest présent mais aucune stack configurée."
+        healthy=false
+    fi
+
+    if [[ "$configured_count" -gt 0 && "$truststore_state" != "OK" && "$bundle_state" != "OK" ]]; then
+        echo "⚠ Installation incomplète : stacks enregistrées mais truststore/bundle absents."
+        healthy=false
+    fi
+
+    if [[ "$truststore_state" == "OK" || "$bundle_state" == "OK" ]] && [[ "$configured_count" -eq 0 ]]; then
+        echo "⚠ Résidu détecté : fichiers ou manifest sans stack configurée."
+        echo "  Nettoyage : rm -rf $TRUSTSTORE_DIR"
+        echo "  Puis       : ./install.sh --all --netskope --yes"
+        healthy=false
+    fi
+
+    if [[ "$healthy" == true && "$configured_count" -gt 0 ]]; then
+        echo "Installation opérationnelle ($configured_count stack(s) configurée(s))."
+        echo "Rollback  : ./install.sh --rollback"
+    elif [[ "$healthy" == false ]]; then
+        echo "Relance recommandée : ./install.sh --all --netskope --yes"
+    fi
     echo
 }
 

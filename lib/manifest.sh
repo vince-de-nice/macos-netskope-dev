@@ -95,3 +95,8 @@ load_manifest_value() {
     key_escaped="$(printf '%s' "$key" | sed 's/[][\\.*^$()+?{}|]/\\&/g')"
     sed -n "s/^[[:space:]]*\"${key_escaped}\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" "$MANIFEST_FILE" | head -1
 }
+
+load_manifest_version() {
+    [[ -f "$MANIFEST_FILE" ]] || return 1
+    sed -n 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$MANIFEST_FILE" | head -1
+}

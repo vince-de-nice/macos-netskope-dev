@@ -132,10 +132,11 @@ export_certificate_pem() {
 
 export_certificates_to_dir() {
     # Entrée : tableau global CERT_EXPORT_LIST ("label|keychain|alias")
-    local label keychain alias pem_file source
+    local label keychain alias pem_file source final_pem
     local -a exported=()
 
     mkdir -p "$CERT_EXPORT_DIR"
+    USED_CERT_ALIASES=()
 
     for entry in "${CERT_EXPORT_LIST[@]}"; do
         IFS='|' read -r label keychain alias <<< "$entry"
@@ -162,6 +163,15 @@ export_certificates_to_dir() {
             warn "Fichier PEM invalide pour '$label'."
             rm -f "$pem_file"
             continue
+        fi
+
+        final_pem="$pem_file"
+        ensure_unique_alias "$alias" "$pem_file"
+        alias="$RESOLVED_CERT_ALIAS"
+        final_pem="$CERT_EXPORT_DIR/${alias}.pem"
+        if [[ "$pem_file" != "$final_pem" ]]; then
+            mv "$pem_file" "$final_pem"
+            pem_file="$final_pem"
         fi
 
         exported+=("$alias|$pem_file|$label")
@@ -216,7 +226,7 @@ build_cert_export_list_netskope_auto() {
     done < <(find_netskope_certificates)
 
     if ((${#matches[@]} == 0)); then
-        die "Aucun certificat Netskope trouvé dans le Keychain. Utilisez --cert \"Nom\" ou --discover-tls."
+        die "Aucun certificat Netskope trouvé dans le Keychain. Utilisez --cert \"Nom\" ou --netskope."
     fi
 
     log "Certificats Netskope détectés :"

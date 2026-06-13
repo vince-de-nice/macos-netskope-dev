@@ -796,13 +796,63 @@ EOF
 }
 
 test_discover_tls_dry_run() {
-    log_test "--gradle --discover-tls --dry-run (connexion directe, sans proxy)"
+    log_test "--gradle --discover-tls --force --dry-run"
     tests_require_commands openssl
 
     local output
-    output="$(run_install --gradle --discover-tls --dry-run --yes 2>&1)"
+    output="$(run_install --gradle --discover-tls --force --dry-run --yes 2>&1)"
     assert_contains "installation terminée" "$output" "INSTALLATION TERMINÉE"
     assert_contains "certificats importés" "$output" "Certificats importés"
+}
+
+test_discover_tls_blocked_without_force() {
+    log_test "--discover-tls refusé sans --force"
+    local output exit_code=0
+    output="$(run_install --gradle --discover-tls --dry-run --yes 2>&1)" || exit_code=$?
+    assert_contains "refus discover-tls" "$output" "discover-tls"
+    [[ "$exit_code" -ne 0 ]] && log_pass "exit code non nul" || log_fail "exit code non nul"
+}
+
+test_status_incomplete_residue() {
+    log_test "--status détecte manifest orphelin"
+    source_all_libs
+    set_install_paths
+    mkdir -p "$STATE_DIR"
+    cat > "$MANIFEST_FILE" <<EOF
+{
+  "version": "4.2.0",
+  "updated_at": "2026-01-01T00:00:00Z",
+  "truststore_file": "$TRUSTSTORE_FILE",
+  "entries": {
+    "truststore_created_from": "/tmp/cacerts"
+  }
+}
+EOF
+
+    local output
+    output="$(run_install --status 2>&1)"
+    assert_contains "truststore absent" "$output" "[ABSENT]"
+    assert_contains "alerte incomplet" "$output" "Installation incomplète"
+}
+
+test_ensure_unique_alias() {
+    log_test "ensure_unique_alias (collision)"
+    source_libs
+    tests_require_commands openssl || { log_skip "openssl absent"; return 0; }
+
+    USED_CERT_ALIASES=()
+    local pem1="$TEST_ROOT/alias1.pem" pem2="$TEST_ROOT/alias2.pem"
+    openssl req -x509 -newkey rsa:2048 -keyout "$TEST_ROOT/k1.pem" -out "$pem1" \
+        -days 1 -nodes -subj "/CN=Netskope Root CA" 2>/dev/null
+    openssl req -x509 -newkey rsa:2048 -keyout "$TEST_ROOT/k2.pem" -out "$pem2" \
+        -days 1 -nodes -subj "/CN=Netskope Root CA" 2>/dev/null
+
+    local a1 a2
+    ensure_unique_alias "netskope-root-ca" "$pem1"
+    a1="$RESOLVED_CERT_ALIAS"
+    ensure_unique_alias "netskope-root-ca" "$pem2"
+    a2="$RESOLVED_CERT_ALIAS"
+    [[ "$a1" != "$a2" ]] && log_pass "alias dédupliqués" || log_fail "alias dédupliqués"
 }
 
 test_docs_gradle() {
@@ -894,6 +944,7 @@ test_help() {
     assert_contains "option --all" "$output" "--all"
     assert_contains "option --dart" "$output" "--dart"
     assert_contains "option --as-user" "$output" "--as-user"
+    assert_contains "option --force" "$output" "--force"
     assert_contains "mention admin doc" "$output" "ADMIN.md"
 }
 
@@ -1266,6 +1317,12 @@ main() {
     test_npm_stack_configure
     echo
     test_discover_tls_dry_run
+    echo
+    test_discover_tls_blocked_without_force
+    echo
+    test_status_incomplete_residue
+    echo
+    test_ensure_unique_alias
     echo
     test_status_after_dry_run
     echo

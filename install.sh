@@ -48,6 +48,7 @@ INSTALL_ALL=false
 INCLUDE_SIMULATOR=false
 SKIP_VERIFY=false
 AUTO_ROLLBACK=true
+FORCE_DISCOVER_TLS=false
 
 SELECTED_STACKS=()
 
@@ -113,7 +114,8 @@ Source des certificats (obligatoire sauf --status/--docs/--rollback) :
 
   --netskope          CA Netskope depuis le Keychain (recommandé)
   --cert "NOM"        Certificat par nom
-  --discover-tls      Chaîne TLS + Keychain
+  --discover-tls      Chaîne TLS + Keychain (nécessite --force, déconseillé)
+  --force             Autorise --discover-tls (hors Netskope, usage avancé)
 
 Autres options :
 
@@ -172,6 +174,10 @@ parse_args() {
                 ;;
             --discover-tls)
                 MODE="discover-tls"
+                shift
+                ;;
+            --force)
+                FORCE_DISCOVER_TLS=true
                 shift
                 ;;
             --list-netskope)
@@ -261,7 +267,16 @@ validate_mode() {
     }
 
     [[ -n "$MODE" ]] ||
-        die "Source de certificats requise : --netskope, --cert ou --discover-tls"
+        die "Source de certificats requise : --netskope, --cert ou --discover-tls --force"
+
+    if [[ "$MODE" == "discover-tls" && "$FORCE_DISCOVER_TLS" != true ]]; then
+        die "Option --discover-tls désactivée par défaut.
+
+Derrière Netskope, utilisez --netskope (recommandé) pour exporter les CA d'entreprise depuis le Keychain.
+--discover-tls importe la chaîne TLS publique d'un hôte (Let's Encrypt, etc.) et ne remplace pas les CA Netskope.
+
+Si vous savez vraiment ce que vous faites : ajoutez --force"
+    fi
 }
 
 list_netskope_certs() {
@@ -363,7 +378,7 @@ run_install() {
     require_commands security openssl sed awk grep
 
     if needs_certificate_export; then
-        ensure_sudo "$0 $*"
+        ensure_sudo
     fi
 
     if needs_gradle_stack; then

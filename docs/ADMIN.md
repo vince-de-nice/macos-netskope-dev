@@ -10,7 +10,7 @@ Le script **n'est pas** une installation machine-wide (contrairement au client N
 |-----------|-------------|
 | Truststore Gradle | `~/.gradle/corporate-truststore/` |
 | Gradle | `~/.gradle/gradle.properties` |
-| Variables d'env | `~/.zshrc` (bloc marqué) |
+| Variables d'env | `~/.zshrc`, `~/.zprofile` ou `~/.bash_profile` (bloc marqué) |
 | Git | `~/.gitconfig` (`http.sslCAInfo`) |
 | npm | `~/.npmrc` |
 | gcloud | `~/.config/gcloud/` |
@@ -68,10 +68,14 @@ Le script :
 
 ### Option B : `sudo -u` explicite
 
+Cette option **ne déclenche pas l'export Keychain root**. À réserver si les certificats sont déjà exportés ou si le développeur a sudo :
+
 ```bash
 sudo -u jdupont env HOME=/Users/jdupont \
   /chemin/vers/gradle-corporate-truststore/install.sh --all --netskope --yes
 ```
+
+Préférez l'**Option A** (`sudo ./install.sh --as-user`) pour le déploiement IT standard.
 
 ### Vérification côté admin
 
@@ -87,23 +91,23 @@ Demander au développeur d'**ouvrir un nouveau terminal** ou de lancer `source ~
 
 ## Scénario 3 — Déploiement MDM / Jamf / Intune
 
-Exécuter le script **dans le contexte utilisateur** au login ou à la première connexion réseau :
+Exécuter le script **via l'admin système** pour exporter le Keychain, puis configurer l'utilisateur connecté :
 
 ```bash
 #!/bin/bash
 INSTALL_DIR="/usr/local/share/gradle-corporate-truststore"
 TARGET_USER="$(/usr/bin/stat -f%Su /dev/console)"
-TARGET_HOME="$(eval echo "~$TARGET_USER")"
 
 [[ "$TARGET_USER" == "root" || -z "$TARGET_USER" ]] && exit 0
 [[ -x "$INSTALL_DIR/install.sh" ]] || exit 0
 
-# Idempotent : ne relance que si pas déjà installé
-if [[ ! -f "$TARGET_HOME/.gradle/corporate-truststore/state/manifest.json" ]]; then
-  sudo -u "$TARGET_USER" env HOME="$TARGET_HOME" \
-    "$INSTALL_DIR/install.sh" --all --netskope --yes
+# Idempotent : ne relance que si pas déjà installé (vérifier aussi les stacks)
+if ! sudo -u "$TARGET_USER" "$INSTALL_DIR/install.sh" --status 2>/dev/null | grep -q 'Installation opérationnelle'; then
+  sudo "$INSTALL_DIR/install.sh" --as-user "$TARGET_USER" --all --netskope --yes
 fi
 ```
+
+> **Important :** utiliser `sudo ./install.sh --as-user` (pas `sudo -u` seul) pour que l'export Keychain s'exécute en root.
 
 Points d'attention MDM :
 

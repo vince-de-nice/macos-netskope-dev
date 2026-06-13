@@ -2,7 +2,7 @@
 
 ## Résumé
 
-Écrit un bloc de **variables d'environnement** dans `~/.zshrc` (ou `~/.bash_profile`) pointant vers le bundle CA Netskope.
+Écrit un bloc de **variables d'environnement** dans `~/.zshrc`, `~/.zprofile` ou `~/.bash_profile`.
 
 **Commande :** `./install.sh --shell --netskope`
 

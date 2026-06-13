@@ -51,6 +51,11 @@ perform_rollback() {
         log "Bundle CA supprimé : $CA_BUNDLE_FILE"
     fi
 
+    if [[ -d "${CERTS_CACHE_DIR:-}" && "$DRY_RUN" == false ]]; then
+        rm -rf "$CERTS_CACHE_DIR"
+        log "Cache certificats supprimé : $CERTS_CACHE_DIR"
+    fi
+
     if [[ "$DRY_RUN" == false ]]; then
         mv "$manifest" "${manifest}.rolled-back.$(date +%Y%m%d-%H%M%S)"
     fi

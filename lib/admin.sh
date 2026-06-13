@@ -14,6 +14,7 @@ ADMIN_SHOW_STATUS=false
 ADMIN_SHOW_DOCS=""
 ADMIN_LIST_NETSKOPE=false
 ADMIN_DRY_RUN=false
+ADMIN_FORCE=false
 
 preparse_as_user() {
     INSTALL_AS_USER=""
@@ -47,6 +48,7 @@ preparse_install_flags() {
     ADMIN_SHOW_DOCS=""
     ADMIN_LIST_NETSKOPE=false
     ADMIN_DRY_RUN=false
+    ADMIN_FORCE=false
 
     while ((i < ${#args[@]})); do
         case "${args[$i]}" in
@@ -85,6 +87,9 @@ preparse_install_flags() {
             --dry-run)
                 ADMIN_DRY_RUN=true
                 ;;
+            --force)
+                ADMIN_FORCE=true
+                ;;
         esac
         i=$((i + 1))
     done
@@ -121,6 +126,10 @@ admin_export_certs_for_user() {
     preparse_install_flags "${@:2}"
     admin_install_requires_cert_export || return 0
     [[ "$ADMIN_DRY_RUN" == true ]] && return 0
+
+    if [[ "$ADMIN_INSTALL_MODE" == "discover-tls" && "$ADMIN_FORCE" != true ]]; then
+        die "Option --discover-tls requiert --force (voir --help)."
+    fi
 
     target_home="$(resolve_user_home "$username")" ||
         die "Utilisateur introuvable ou répertoire home absent : $username"
