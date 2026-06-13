@@ -39,9 +39,22 @@ list_keychain_labels() {
 find_certificates_by_name() {
     local search_name="$1"
     local -a results=()
-    local keychain label normalized needle
+    local keychain label normalized needle line
 
     needle="$(echo "$search_name" | tr '[:upper:]' '[:lower:]')"
+
+    if [[ -n "${MND_TEST_NETSKOPE_CERTS_FILE:-}" && -f "$MND_TEST_NETSKOPE_CERTS_FILE" ]]; then
+        while IFS= read -r line; do
+            [[ -z "$line" ]] && continue
+            label="${line%%|*}"
+            normalized="$(echo "$label" | tr '[:upper:]' '[:lower:]')"
+            [[ "$normalized" == *"$needle"* ]] && results+=("$line")
+        done < "$MND_TEST_NETSKOPE_CERTS_FILE"
+        if ((${#results[@]} > 0)); then
+            printf '%s\n' "${results[@]}"
+        fi
+        return 0
+    fi
 
     for keychain in "${KEYCHAIN_SEARCH_PATHS[@]}"; do
         [[ -f "$keychain" ]] || continue
@@ -73,6 +86,11 @@ find_certificates_by_name() {
 }
 
 find_netskope_certificates() {
+    if [[ -n "${MND_TEST_NETSKOPE_CERTS_FILE:-}" && -f "$MND_TEST_NETSKOPE_CERTS_FILE" ]]; then
+        cat "$MND_TEST_NETSKOPE_CERTS_FILE"
+        return 0
+    fi
+
     local -a results=()
     local keychain label normalized pattern match
 
@@ -106,6 +124,15 @@ export_certificate_pem() {
     local cert_name="$1"
     local output_file="$2"
     local keychain="${3:-}"
+    local fixture=""
+
+    if [[ -n "${MND_TEST_CERT_FIXTURE_DIR:-}" ]]; then
+        fixture="$MND_TEST_CERT_FIXTURE_DIR/$(sanitize_alias "$cert_name").pem"
+        if [[ -f "$fixture" ]]; then
+            cp "$fixture" "$output_file"
+            [[ -s "$output_file" ]] && return 0
+        fi
+    fi
 
     : > "$output_file"
 
@@ -214,6 +241,40 @@ build_cert_export_list_from_name() {
         alias="$(sanitize_alias "$label")"
         CERT_EXPORT_LIST+=("$label|$keychain|$alias")
     done
+}
+
+build_cert_export_list_by_fingerprint() {
+    local needle="${1//:/}"
+    needle="$(echo "$needle" | tr '[:upper:]' '[:lower:]')"
+    local -a matches=()
+    local item label keychain alias line fp
+
+    while IFS= read -r line; do
+        [[ -n "$line" ]] && matches+=("$line")
+    done < <(find_netskope_certificates)
+
+    if ((${#matches[@]} == 0)); then
+        die "Aucun certificat Netskope trouvé pour --cert-fingerprint."
+    fi
+
+    CERT_EXPORT_LIST=()
+    for item in "${matches[@]}"; do
+        label="${item%%|*}"
+        keychain="${item#*|}"
+        if ! export_certificate_pem "$label" "$WORKDIR/fp-check.pem" "$keychain"; then
+            continue
+        fi
+        fp="$(openssl x509 -in "$WORKDIR/fp-check.pem" -noout -fingerprint -sha256 2>/dev/null |
+            sed 's/sha256 Fingerprint=//I' | tr -d ': ' | tr '[:upper:]' '[:lower:]')"
+        rm -f "$WORKDIR/fp-check.pem"
+        [[ "$fp" == *"$needle"* ]] || continue
+        alias="$(sanitize_alias "$label")"
+        log "Certificat sélectionné par empreinte : $label ($fp)"
+        CERT_EXPORT_LIST+=("$label|$keychain|$alias")
+    done
+
+    ((${#CERT_EXPORT_LIST[@]} > 0)) ||
+        die "Aucun certificat ne correspond à l'empreinte : $1"
 }
 
 build_cert_export_list_netskope_auto() {
