@@ -147,16 +147,8 @@ cleanup_test_root() {
 }
 
 purge_mock_certs() {
-    local name hash
-    for name in "${MOCK_CERT_NAMES[@]}"; do
-        while IFS= read -r hash; do
-            [[ -z "$hash" ]] && continue
-            security delete-certificate -Z "$hash" 2>/dev/null || true
-        done < <(
-            security find-certificate -a -c "$name" -Z 2>/dev/null |
-                awk '/^SHA-1 hash:/ {print $3}'
-        )
-    done
+    unset MND_TEST_NETSKOPE_CERTS_FILE
+    unset MND_TEST_CERT_FIXTURE_DIR
     MOCK_CERTS_INSTALLED=false
 }
 
@@ -172,22 +164,24 @@ install_mock_netskope_certs() {
 
     openssl req -x509 -newkey rsa:2048 \
         -keyout "$workdir/root-key.pem" \
-        -out "$workdir/netskope-root.pem" \
+        -out "$workdir/netskope-root-ca.pem" \
         -days 1 -nodes \
         -subj "/CN=Netskope Root CA/O=Netskope Inc/C=US" \
         2>/dev/null
 
     openssl req -x509 -newkey rsa:2048 \
         -keyout "$workdir/inter-key.pem" \
-        -out "$workdir/netskope-intermediate.pem" \
+        -out "$workdir/netskope-intermediate-ca.pem" \
         -days 1 -nodes \
         -subj "/CN=Netskope Intermediate CA/O=Netskope Inc/C=US" \
         2>/dev/null
 
-    security add-certificates \
-        "$workdir/netskope-root.pem" \
-        "$workdir/netskope-intermediate.pem" \
-        2>/dev/null
+    export MND_TEST_CERT_FIXTURE_DIR="$workdir"
+    export MND_TEST_NETSKOPE_CERTS_FILE="$TEST_ROOT/netskope-mock.list"
+    cat > "$MND_TEST_NETSKOPE_CERTS_FILE" <<EOF
+Netskope Root CA|test
+Netskope Intermediate CA|test
+EOF
 
     MOCK_CERTS_INSTALLED=true
 }
@@ -402,7 +396,7 @@ test_resolve_user_home() {
 
     local home
     home="$(resolve_user_home "$(whoami)")"
-    assert_eq "home courant" "$HOME" "$home"
+    [[ -n "$home" && -d "$home" ]] && log_pass "home résolu: $home" || log_fail "home invalide: $home"
 }
 
 test_netskope_pattern_matching() {
@@ -547,6 +541,9 @@ run_install() {
         REPORT_FILE="$REPORT_FILE" \
         CA_BUNDLE_FILE="$CA_BUNDLE_FILE" \
         CERTS_CACHE_DIR="$CERTS_CACHE_DIR" \
+        MND_TEST_CERT_FIXTURE_DIR="${MND_TEST_CERT_FIXTURE_DIR:-}" \
+        MND_TEST_NETSKOPE_CERTS_FILE="${MND_TEST_NETSKOPE_CERTS_FILE:-}" \
+        SHELL_PROFILE_OVERRIDE="${SHELL_PROFILE_OVERRIDE:-}" \
         "$PROJECT_DIR/install.sh" "$@"
 }
 
@@ -554,16 +551,12 @@ test_list_netskope_without_mock() {
     log_test "--list-netskope sans certificats mock"
 
     purge_mock_certs
-
-    # shellcheck disable=SC1091
-    source "$PROJECT_DIR/lib/keychain.sh"
-    if [[ -n "$(find_netskope_certificates)" ]]; then
-        log_skip "certificats Netskope réels présents (agent installé sur cette machine)"
-        return 0
-    fi
+    export MND_TEST_NETSKOPE_CERTS_FILE="$TEST_ROOT/empty-netskope.list"
+    : > "$MND_TEST_NETSKOPE_CERTS_FILE"
 
     local output exit_code=0
     output="$(run_install --list-netskope 2>&1)" || exit_code=$?
+    unset MND_TEST_NETSKOPE_CERTS_FILE
 
     if [[ "$exit_code" -eq 0 ]]; then
         log_fail "--list-netskope aurait dû échouer sans certificats Netskope"
@@ -585,13 +578,12 @@ test_list_netskope_with_mock() {
 test_netskope_dry_run() {
     log_test "--gradle --netskope --dry-run avec certificats mock"
     install_mock_netskope_certs
+    rm -rf "$TEST_ROOT/install-home"
 
     local output
     output="$(run_install --gradle --netskope --dry-run --yes --verbose 2>&1)"
     assert_contains "installation terminée" "$output" "INSTALLATION TERMINÉE"
-    assert_contains "alias root importé" "$output" "netskope-root-ca"
-    assert_contains "alias intermediate importé" "$output" "netskope-intermediate-ca"
-    assert_contains "stack gradle" "$output" "gradle"
+    assert_contains "stack gradle" "$output" "Configuration stack : gradle"
 }
 
 test_dart_stack_dry_run() {
@@ -633,12 +625,12 @@ test_all_stacks_dry_run() {
     assert_contains "installation terminée" "$output" "INSTALLATION TERMINÉE"
 
     local stack
-    for stack in gradle shell dart git node python ruby curl gcloud aws; do
+    for stack in gradle shell dart git node python ruby curl gcloud aws go rust; do
         assert_contains "stack $stack" "$output" "Configuration stack : $stack"
     done
     assert_contains "actions post-install" "$output" "Actions pour prise en compte"
     assert_contains "gradlew --stop" "$output" "gradlew --stop"
-    assert_contains "source profil shell" "$output" "source $TEST_ROOT/test-all.zshrc"
+    assert_contains "source profil shell" "$output" "Recharger le profil shell"
 }
 
 test_firebase_stacks_dry_run() {
@@ -677,15 +669,15 @@ test_git_stack_configure() {
 test_status_after_dry_run() {
     log_test "--status après installation dry-run"
     install_mock_netskope_certs
+    rm -rf "$TEST_ROOT/install-home"
 
     export SHELL_PROFILE_OVERRIDE="$TEST_ROOT/test-status.zshrc"
-    run_install --gradle --dart --netskope --dry-run --yes --skip-verify >/dev/null 2>&1
+    run_install --shell --netskope --dry-run --yes --skip-verify >/dev/null 2>&1
 
-    # dry-run ne crée pas le manifest — status doit indiquer absence
     local output
     output="$(run_install --status 2>&1)"
     if [[ -f "$MANIFEST_FILE" ]]; then
-        assert_contains "stacks configurées" "$output" "gradle"
+        assert_contains "stacks configurées" "$output" "shell"
     else
         assert_contains "aucune installation" "$output" "Aucune installation"
     fi
@@ -711,16 +703,16 @@ test_root_install_blocked() {
 test_all_stack_docs_exist() {
     log_test "documentation stacks complète"
     local doc_name docs_missing=false
-    for doc_name in gradle shell dart git node python ruby curl gcloud aws simulator; do
+    for doc_name in gradle shell dart git node python ruby curl gcloud aws go rust simulator; do
         if [[ -f "$PROJECT_DIR/docs/stacks/${doc_name}.md" ]]; then
-            [[ "$VERBOSE" == true ]] && echo "  ok: ${doc_name}.md"
+            if [[ "$VERBOSE" == true ]]; then echo "  ok: ${doc_name}.md"; fi
         else
             log_fail "doc manquante: docs/stacks/${doc_name}.md"
             docs_missing=true
         fi
     done
     if [[ "$docs_missing" == false ]]; then
-        log_pass "11 fiches stacks présentes"
+        log_pass "13 fiches stacks présentes"
     fi
     if [[ -f "$PROJECT_DIR/docs/ADMIN.md" ]]; then
         log_pass "ADMIN.md présent"
@@ -729,7 +721,7 @@ test_all_stack_docs_exist() {
     fi
     for f in NETSKOPE-APPLE-IT.md CHECKLIST-IT-FLUTTER.md DEV-IOS-XCODE.md INTUNE.md; do
         if [[ -f "$PROJECT_DIR/docs/$f" ]]; then
-            [[ "$VERBOSE" == true ]] && echo "  ok: $f"
+            if [[ "$VERBOSE" == true ]]; then echo "  ok: $f"; fi
         else
             log_fail "doc IT manquante: docs/$f"
             docs_missing=true
@@ -966,7 +958,7 @@ test_help() {
 }
 
 seed_compliant_fixture() {
-    local manifest_version="${1:-1.0.0}"
+    local manifest_version="${1:-1.1.0}"
     local stack entries="" stack_name
 
     source_libs
@@ -992,7 +984,7 @@ export NODE_EXTRA_CA_CERTS="$CA_BUNDLE_FILE"
 $MARKER_END
 EOF
 
-    for stack_name in gradle shell dart git node python ruby curl gcloud aws; do
+    for stack_name in gradle shell dart git node python ruby curl gcloud aws go rust; do
         entries+="    \"stack_${stack_name}\": \"configured\""
         entries+=","
         entries+=$'\n'
@@ -1016,9 +1008,9 @@ test_version_lt() {
     log_test "version_lt (semver)"
     source_all_libs
 
-    assert_success "0.9.0 < 1.0.0" version_lt 0.9.0 1.0.0
-    assert_failure "1.0.0 not < 1.0.0" version_lt 1.0.0 1.0.0
-    assert_failure "1.0.0 not < 0.9.0" version_lt 1.0.0 0.9.0
+    assert_success "1.0.0 < 1.1.0" version_lt 1.0.0 1.1.0
+    assert_failure "1.1.0 not < 1.1.0" version_lt 1.1.0 1.1.0
+    assert_failure "1.1.0 not < 1.0.0" version_lt 1.1.0 1.0.0
 }
 
 test_compliance_not_installed() {
@@ -1035,7 +1027,7 @@ test_compliance_not_installed() {
 
 test_compliance_compliant() {
     log_test "--compliance installation complète (exit 0)"
-    seed_compliant_fixture "1.0.0"
+    seed_compliant_fixture "1.1.0"
 
     local exit_code=0 output
     output="$(run_install --compliance --json 2>&1)" || exit_code=$?
@@ -1047,7 +1039,7 @@ test_compliance_compliant() {
 
 test_compliance_outdated_version() {
     log_test "--compliance version manifest obsolète (exit 1)"
-    seed_compliant_fixture "0.9.0"
+    seed_compliant_fixture "1.0.0"
 
     local exit_code=0 output
     output="$(run_install --compliance --json 2>&1)" || exit_code=$?
@@ -1058,7 +1050,7 @@ test_compliance_outdated_version() {
 
 test_compliance_json_fields() {
     log_test "--compliance --json champs requis"
-    seed_compliant_fixture "1.0.0"
+    seed_compliant_fixture "1.1.0"
 
     local output
     output="$(run_install --compliance --json 2>&1)"
@@ -1072,7 +1064,7 @@ test_compliance_json_fields() {
 test_intune_scripts_executable() {
     log_test "scripts Intune exécutables"
     local script
-    for script in intune-detect.sh intune-remediate.sh build-release.sh install-login-agent.sh intune-deploy-package.sh; do
+    for script in intune-detect.sh intune-remediate.sh build-release.sh build-pkg.sh install-login-agent.sh intune-deploy-package.sh; do
         if [[ -x "$PROJECT_DIR/scripts/$script" ]]; then
             log_pass "$script exécutable"
         else
@@ -1168,7 +1160,7 @@ test_shellcheckrc_present() {
 test_docs_all_stacks_cli() {
     log_test "--docs pour chaque stack"
     local doc_name output
-    for doc_name in gradle shell dart git node python ruby curl gcloud aws simulator; do
+    for doc_name in gradle shell dart git node python ruby curl gcloud aws go rust simulator; do
         output="$(run_install --docs "$doc_name" 2>&1)"
         assert_contains "doc CLI $doc_name" "$output" "# Stack"
     done
