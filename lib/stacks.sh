@@ -15,8 +15,56 @@ ALL_STACKS=(
     curl
     gcloud
     aws
+    go
+    rust
     simulator
 )
+
+# Stacks incluses dans --all (simulateur exclu par défaut).
+ALL_STACKS_DEFAULT=(
+    gradle
+    shell
+    dart
+    git
+    node
+    python
+    ruby
+    curl
+    gcloud
+    aws
+    go
+    rust
+)
+
+resolve_compliance_expected_stacks() {
+    local profile="${MND_COMPLIANCE_PROFILE:-}"
+    local -a stacks=()
+
+    if [[ -n "${MND_COMPLIANCE_STACKS:-}" ]]; then
+        local item
+        IFS=',' read -ra stacks <<< "${MND_COMPLIANCE_STACKS// /}"
+        MND_EXPECTED_STACKS=()
+        for item in "${stacks[@]}"; do
+            [[ -n "$item" ]] && MND_EXPECTED_STACKS+=("$item")
+        done
+        return 0
+    fi
+
+    case "$profile" in
+        mobile-dev)
+            MND_EXPECTED_STACKS=(gradle shell dart git node ruby curl)
+            ;;
+        minimal)
+            MND_EXPECTED_STACKS=(gradle shell dart)
+            ;;
+        ""|full|default)
+            MND_EXPECTED_STACKS=("${ALL_STACKS_DEFAULT[@]}")
+            ;;
+        *)
+            die "Profil compliance inconnu : $profile (mobile-dev, minimal, full)"
+            ;;
+    esac
+}
 
 CONFIGURED_STACKS=()
 
@@ -44,6 +92,7 @@ print_all_docs_index() {
     echo "  docs/NETSKOPE-APPLE-IT.md   — Netskope / Apple / Xcode (IT réseau)"
     echo "  docs/DEV-IOS-XCODE.md       — développeur iOS"
     echo "  docs/INTUNE.md              — Microsoft Intune"
+    echo "  docs/TROUBLESHOOTING.md     — dépannage compliance"
     echo
     echo "Stacks disponibles :"
     echo
@@ -94,6 +143,11 @@ configure_stack_dart() {
 configure_stack_git() {
     ensure_ca_bundle_exists
     if [[ "$DRY_RUN" == false ]]; then
+        if ! manifest_entry_exists "git_ssl_ca_info_backup"; then
+            local prev
+            prev="$(git config --global --get http.sslCAInfo 2>/dev/null || true)"
+            write_manifest_entry "git_ssl_ca_info_backup" "${prev:-__unset__}"
+        fi
         git config --global http.sslCAInfo "$CA_BUNDLE_FILE"
         write_manifest_entry "git_ssl_ca_info" "$CA_BUNDLE_FILE"
     fi
@@ -106,6 +160,12 @@ configure_stack_node() {
     ensure_ca_bundle_exists
     if command -v npm >/dev/null 2>&1; then
         if [[ "$DRY_RUN" == false ]]; then
+            if ! manifest_entry_exists "npm_cafile_backup"; then
+                local prev
+                prev="$(npm config get cafile --location=user 2>/dev/null || true)"
+                [[ "$prev" == "null" || "$prev" == "undefined" ]] && prev=""
+                write_manifest_entry "npm_cafile_backup" "${prev:-__unset__}"
+            fi
             npm config set cafile "$CA_BUNDLE_FILE" --location=user 2>/dev/null || \
                 npm config set cafile "$CA_BUNDLE_FILE"
             write_manifest_entry "npm_cafile" "$CA_BUNDLE_FILE"
@@ -176,6 +236,26 @@ configure_stack_aws() {
     report_line "AWS: AWS_CA_BUNDLE via shell profile"
 }
 
+configure_stack_go() {
+    ensure_ca_bundle_exists
+    if [[ "$SHELL_BLOCK_WRITTEN" != true ]]; then
+        write_shell_profile_block
+    fi
+    mark_stack_configured "go"
+    log "Go : SSL_CERT_FILE via profil shell."
+    report_line "Go: SSL_CERT_FILE via shell profile"
+}
+
+configure_stack_rust() {
+    ensure_ca_bundle_exists
+    if [[ "$SHELL_BLOCK_WRITTEN" != true ]]; then
+        write_shell_profile_block
+    fi
+    mark_stack_configured "rust"
+    log "Rust/cargo : CARGO_HTTP_CAINFO via profil shell."
+    report_line "Rust: CARGO_HTTP_CAINFO via shell profile"
+}
+
 configure_stack_simulator() {
     local entry pem_file label booted added=0
 
@@ -225,6 +305,8 @@ configure_stack() {
         curl) configure_stack_curl ;;
         gcloud) configure_stack_gcloud ;;
         aws) configure_stack_aws ;;
+        go) configure_stack_go ;;
+        rust) configure_stack_rust ;;
         simulator) configure_stack_simulator ;;
         *) die "Stack inconnue : $stack" ;;
     esac
@@ -277,18 +359,31 @@ verify_stack() {
 }
 
 rollback_stack_git() {
+    local backup prev
+    backup="$(load_manifest_value "git_ssl_ca_info_backup" 2>/dev/null || true)"
     if [[ "$DRY_RUN" == false ]]; then
-        git config --global --unset http.sslCAInfo 2>/dev/null || true
+        if [[ -n "$backup" && "$backup" != "__unset__" ]]; then
+            git config --global http.sslCAInfo "$backup"
+        else
+            git config --global --unset http.sslCAInfo 2>/dev/null || true
+        fi
     fi
-    log "Git : http.sslCAInfo supprimé."
+    log "Git : http.sslCAInfo restauré."
 }
 
 rollback_stack_node() {
+    local backup
+    backup="$(load_manifest_value "npm_cafile_backup" 2>/dev/null || true)"
     if command -v npm >/dev/null 2>&1 && [[ "$DRY_RUN" == false ]]; then
-        npm config delete cafile --location=user 2>/dev/null || \
-            npm config delete cafile 2>/dev/null || true
+        if [[ -n "$backup" && "$backup" != "__unset__" ]]; then
+            npm config set cafile "$backup" --location=user 2>/dev/null || \
+                npm config set cafile "$backup"
+        else
+            npm config delete cafile --location=user 2>/dev/null || \
+                npm config delete cafile 2>/dev/null || true
+        fi
     fi
-    log "npm : cafile supprimé."
+    log "npm : cafile restauré."
 }
 
 rollback_stack_gcloud() {
@@ -325,7 +420,7 @@ rollback_configured_stacks() {
 
 stack_needs_shell_reload() {
     case "$1" in
-        shell|dart|node|python|ruby|curl|aws) return 0 ;;
+        shell|dart|node|python|ruby|curl|aws|go|rust) return 0 ;;
         *) return 1
     esac
 }
