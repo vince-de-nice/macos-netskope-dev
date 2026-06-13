@@ -13,19 +13,7 @@ COMPLIANCE_REASONS=()
 COMPLIANCE_CONFIGURED_STACKS=()
 COMPLIANCE_MISSING_STACKS=()
 
-# Stacks attendues par défaut (--all sans simulateur).
-MND_EXPECTED_STACKS=(
-    gradle
-    shell
-    dart
-    git
-    node
-    python
-    ruby
-    curl
-    gcloud
-    aws
-)
+MND_EXPECTED_STACKS=()
 
 version_normalize() {
     local version="$1"
@@ -77,6 +65,8 @@ compliance_evaluate() {
     local configured_count manifest_version stored_fp current_fp
     local healthy=true exit_code=$MND_COMPLIANCE_OK
 
+    resolve_compliance_expected_stacks
+
     COMPLIANCE_STATUS="compliant"
     COMPLIANCE_REASONS=()
 
@@ -89,7 +79,11 @@ compliance_evaluate() {
         COMPLIANCE_STATUS="needs_remediation"
         healthy=false
     else
-        load_existing_manifest_entries
+        if ! load_existing_manifest_entries; then
+            compliance_add_reason "manifest_unreadable"
+            COMPLIANCE_STATUS="error"
+            return $MND_COMPLIANCE_ERROR
+        fi
         compliance_collect_stack_state
         configured_count="${#COMPLIANCE_CONFIGURED_STACKS[@]}"
 
@@ -265,6 +259,7 @@ run_compliance_check() {
     local exit_code=0
 
     ensure_dirs
+    [[ "${COMPLIANCE_JSON:-false}" == true ]] && export COMPLIANCE_JSON=true
     compliance_evaluate || exit_code=$?
 
     if [[ "${COMPLIANCE_JSON:-false}" == true ]]; then
