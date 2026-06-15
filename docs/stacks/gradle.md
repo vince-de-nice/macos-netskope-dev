@@ -35,7 +35,12 @@ Configure la JVM utilisée par **Gradle** pour faire confiance à la CA Netskope
 - Bloc dans `~/.gradle/gradle.properties` :
   ```
   org.gradle.jvmargs=-Djavax.net.ssl.trustStore=... -Djavax.net.ssl.trustStoreType=PKCS12 ...
+  systemProp.javax.net.ssl.trustStore=...
+  systemProp.javax.net.ssl.trustStoreType=PKCS12
+  systemProp.javax.net.ssl.trustStorePassword=...
   ```
+  Les `systemProp.*` restent actifs même si un projet Flutter redéfinit `org.gradle.jvmargs`.
+- Détection JVM prioritaire : Gradle Wrapper (`./gradlew`), Flutter doctor, Android Studio JBR (pas seulement `java` système).
 - Vérification TLS Java vers Maven Central, Google Maven, Gradle Plugin Portal
 
 ## Vérification manuelle

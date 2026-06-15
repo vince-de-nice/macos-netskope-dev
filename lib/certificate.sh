@@ -129,14 +129,25 @@ discover_chain_from_tls_and_keychain() {
 }
 
 find_base_java_cacerts() {
-    local java_home cacerts
+    local java_home cacerts primary gradle_java_home
     local -a java_homes=()
+    local -a cacerts_candidates=()
 
+    if primary="$(resolve_primary_java_home 2>/dev/null)"; then
+        java_homes+=("$primary")
+    fi
+
+    if [[ -n "${GRADLE_JVM_HOME:-}" && -d "$GRADLE_JVM_HOME" ]]; then
+        java_homes+=("$GRADLE_JVM_HOME")
+    fi
     if [[ -n "${FLUTTER_JAVA_HOME:-}" && -d "$FLUTTER_JAVA_HOME" ]]; then
         java_homes+=("$FLUTTER_JAVA_HOME")
     fi
     if [[ -n "${ANDROID_STUDIO_JBR:-}" && -d "$ANDROID_STUDIO_JBR" ]]; then
         java_homes+=("$ANDROID_STUDIO_JBR")
+    fi
+    if gradle_java_home="$(read_org_gradle_java_home 2>/dev/null)"; then
+        java_homes+=("$gradle_java_home")
     fi
     if [[ -n "${JAVA_HOME:-}" && -d "$JAVA_HOME" ]]; then
         java_homes+=("$JAVA_HOME")
@@ -146,22 +157,24 @@ find_base_java_cacerts() {
         java_homes+=("/Applications/Android Studio.app/Contents/jbr/Contents/Home")
     fi
 
+    if ((${#DETECTED_JAVA_HOMES[@]} > 0)); then
+        java_homes+=("${DETECTED_JAVA_HOMES[@]}")
+    fi
+
     if command -v /usr/libexec/java_home >/dev/null 2>&1; then
         while IFS= read -r java_home; do
             [[ -n "$java_home" && -d "$java_home" ]] && java_homes+=("$java_home")
         done < <(/usr/libexec/java_home -V 2>&1 | sed -n 's/^[[:space:]]*[0-9].*:[[:space:]]*//p' | tr -d ')')
     fi
 
-    local -a cacerts_candidates=()
-    if ((${#java_homes[@]} > 0)); then
-        for java_home in "${java_homes[@]}"; do
-            cacerts_candidates+=(
-                "$java_home/lib/security/cacerts"
-                "$java_home/jre/lib/security/cacerts"
-                "$java_home/Contents/Home/lib/security/cacerts"
-            )
-        done
-    fi
+    while IFS= read -r java_home; do
+        [[ -n "$java_home" ]] || continue
+        cacerts_candidates+=(
+            "$java_home/lib/security/cacerts"
+            "$java_home/jre/lib/security/cacerts"
+            "$java_home/Contents/Home/lib/security/cacerts"
+        )
+    done < <(printf '%s\n' "${java_homes[@]}" | awk '!seen[$0]++')
 
     if ((${#cacerts_candidates[@]} == 0)); then
         return 1
@@ -177,14 +190,20 @@ find_base_java_cacerts() {
     return 1
 }
 
+run_keytool() {
+    local keytool_bin
+    keytool_bin="$(find_keytool_for_truststore)" || die "keytool introuvable pour le truststore."
+    "$keytool_bin" "$@"
+}
+
 detect_cacerts_store_type() {
     local cacerts_file="$1"
 
-    if keytool -list -keystore "$cacerts_file" -storepass changeit -storetype PKCS12 >/dev/null 2>&1; then
+    if run_keytool -list -keystore "$cacerts_file" -storepass changeit -storetype PKCS12 >/dev/null 2>&1; then
         echo "PKCS12"
         return 0
     fi
-    if keytool -list -keystore "$cacerts_file" -storepass changeit -storetype JKS >/dev/null 2>&1; then
+    if run_keytool -list -keystore "$cacerts_file" -storepass changeit -storetype JKS >/dev/null 2>&1; then
         echo "JKS"
         return 0
     fi
@@ -199,7 +218,7 @@ initialize_truststore_from_cacerts() {
     src_type="$(detect_cacerts_store_type "$base_cacerts")"
     log "Conversion $src_type -> PKCS12"
 
-    keytool -importkeystore -noprompt \
+    run_keytool -importkeystore -noprompt \
         -srckeystore "$base_cacerts" \
         -srcstoretype "$src_type" \
         -srcstorepass "$DEFAULT_STORE_PASSWORD" \
@@ -237,7 +256,7 @@ create_or_refresh_truststore() {
 
 truststore_has_alias() {
     local alias="$1"
-    keytool -list \
+    run_keytool -list \
         -keystore "$TRUSTSTORE_FILE" \
         -storetype PKCS12 \
         -storepass "$STORE_PASSWORD" \
@@ -257,7 +276,7 @@ import_certificate_into_truststore() {
             confirm_or_die "Remplacer l'alias '$alias' ?"
         fi
         if [[ "$DRY_RUN" == false ]]; then
-            keytool -delete \
+            run_keytool -delete \
                 -keystore "$TRUSTSTORE_FILE" \
                 -storetype PKCS12 \
                 -storepass "$STORE_PASSWORD" \
@@ -266,7 +285,7 @@ import_certificate_into_truststore() {
     fi
 
     if [[ "$DRY_RUN" == false ]]; then
-        keytool -importcert \
+        run_keytool -importcert \
             -noprompt \
             -trustcacerts \
             -alias "$alias" \

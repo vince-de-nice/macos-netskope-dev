@@ -1232,6 +1232,45 @@ test_ca_bundle_reuse_fingerprint() {
     assert_success "bundle considéré à jour" ca_bundle_is_current
 }
 
+test_cached_certs_without_source() {
+    log_test "install incrémental sans --netskope (cache existant)"
+    source_all_libs
+    set_install_paths
+    export HOME="$INSTALL_HOME"
+    export SHELL_PROFILE_OVERRIDE="$INSTALL_HOME/.zshrc"
+    DRY_RUN=false
+
+    mkdir -p "$CERTS_CACHE_DIR" "$TRUSTSTORE_DIR" "$STATE_DIR"
+    create_mock_pem "$CA_BUNDLE_FILE" "Netskope Root CA"
+    cp "$CA_BUNDLE_FILE" "$CERTS_CACHE_DIR/netskope-root-ca.pem"
+
+    local fp
+    fp="$(compute_ca_bundle_fingerprint)"
+    write_manifest_entry "ca_fingerprint" "$fp"
+    save_manifest
+
+    local output exit_code=0
+    output="$(run_install --dart --dry-run --yes --skip-verify 2>&1)" || exit_code=$?
+
+    assert_eq "install sans source certificat" "0" "$exit_code"
+    assert_contains "réutilisation sans source" "$output" "Certificats existants détectés"
+    assert_contains "stack dart" "$output" "Configuration stack : dart"
+}
+
+test_cached_certs_missing_source_fails() {
+    log_test "refus install sans source ni cache"
+    set_install_paths
+    export HOME="$INSTALL_HOME"
+    rm -rf "$INSTALL_HOME"
+    mkdir -p "$INSTALL_HOME"
+
+    local output exit_code=0
+    output="$(run_install --dart --yes --skip-verify 2>&1)" || exit_code=$?
+
+    assert_eq "exit erreur" "1" "$exit_code"
+    assert_contains "message source requise" "$output" "Source de certificats requise"
+}
+
 test_write_manifest_entry_updates() {
     log_test "write_manifest_entry (mise à jour clé existante)"
     source_all_libs
@@ -1313,7 +1352,45 @@ test_configure_gradle_properties_real() {
     assert_success "gradle.properties existe" test -f "$GRADLE_PROPERTIES"
     assert_contains "marqueur BEGIN" "$(cat "$GRADLE_PROPERTIES")" "$MARKER_BEGIN"
     assert_contains "trustStore PKCS12" "$(cat "$GRADLE_PROPERTIES")" "PKCS12"
+    assert_contains "systemProp trustStore" "$(cat "$GRADLE_PROPERTIES")" "systemProp.javax.net.ssl.trustStore=${TRUSTSTORE_FILE}"
     assert_contains "chemin truststore" "$(cat "$GRADLE_PROPERTIES")" "$TRUSTSTORE_FILE"
+}
+
+test_parse_gradle_version_file() {
+    log_test "parse_gradle_version_file"
+    source_all_libs
+    init_lib_workdir
+
+    local fake_jbr="$TEST_ROOT/fake-jbr"
+    mkdir -p "$fake_jbr/bin"
+    touch "$fake_jbr/bin/java"
+    chmod +x "$fake_jbr/bin/java"
+
+    local gradle_file="$TEST_ROOT/gradle-daemon-jvm.txt"
+    cat > "$gradle_file" <<EOF
+Daemon JVM:    $fake_jbr (no JDK specified, using current Java home)
+EOF
+
+    local path expected
+    expected="$(cd "$fake_jbr" && pwd)"
+    path="$(parse_gradle_version_file "$gradle_file")"
+    assert_eq "extrait Daemon JVM" "$expected" "$path"
+}
+
+test_resolve_primary_java_home_priority() {
+    log_test "resolve_primary_java_home (priorité Gradle > Flutter)"
+    source_all_libs
+
+    GRADLE_JVM_HOME="/tmp/gradle-jdk"
+    FLUTTER_JAVA_HOME="/tmp/flutter-jdk"
+    ANDROID_STUDIO_JBR="/tmp/android-jbr"
+    mkdir -p "$GRADLE_JVM_HOME/bin" "$FLUTTER_JAVA_HOME/bin" "$ANDROID_STUDIO_JBR/bin"
+    touch "$GRADLE_JVM_HOME/bin/java" "$FLUTTER_JAVA_HOME/bin/java" "$ANDROID_STUDIO_JBR/bin/java"
+    chmod +x "$GRADLE_JVM_HOME/bin/java" "$FLUTTER_JAVA_HOME/bin/java" "$ANDROID_STUDIO_JBR/bin/java"
+
+    assert_eq "Gradle JVM prioritaire" \
+        "/tmp/gradle-jdk" \
+        "$(resolve_primary_java_home)"
 }
 
 test_cert_flag_dry_run() {
@@ -1466,11 +1543,19 @@ main() {
     echo
     test_ca_bundle_reuse_fingerprint
     echo
+    test_cached_certs_without_source
+    echo
+    test_cached_certs_missing_source_fails
+    echo
     test_admin_preparse_install_flags
     echo
     test_load_manifest_missing
     echo
     test_configure_gradle_properties_real
+    echo
+    test_parse_gradle_version_file
+    echo
+    test_resolve_primary_java_home_priority
     echo
     test_compliance_json_fields
     echo

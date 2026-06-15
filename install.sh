@@ -305,9 +305,6 @@ validate_mode() {
         exit 1
     }
 
-    [[ -n "$MODE" || -n "$CERT_FINGERPRINT" ]] ||
-        die "Source de certificats requise : --netskope, --cert, --cert-fingerprint ou --discover-tls --force"
-
     if [[ "$MODE" == "discover-tls" && "$FORCE_DISCOVER_TLS" != true ]]; then
         die "Option --discover-tls désactivée par défaut.
 
@@ -391,6 +388,31 @@ needs_certificate_export() {
     return 0
 }
 
+has_reusable_certificate_material() {
+    if needs_certificate_export; then
+        return 1
+    fi
+
+    [[ -f "$CA_BUNDLE_FILE" && -s "$CA_BUNDLE_FILE" ]] && return 0
+    certs_cache_has_pems && return 0
+
+    return 1
+}
+
+validate_certificate_source() {
+    if [[ -n "$MODE" || -n "$CERT_FINGERPRINT" ]]; then
+        return 0
+    fi
+
+    if has_reusable_certificate_material; then
+        log "Certificats existants détectés — réutilisation sans --netskope / --discover-tls."
+        return 0
+    fi
+
+    die "Source de certificats requise : --netskope, --cert, --cert-fingerprint ou --discover-tls --force
+(ou relancez après une première installation ayant exporté les CA dans ~/.gradle/macos-netskope-dev/)"
+}
+
 resolve_certificate_material() {
     if needs_certificate_export; then
         prepare_certificates
@@ -403,7 +425,7 @@ resolve_certificate_material() {
         log "Bundle CA existant réutilisé : $CA_BUNDLE_FILE"
         prepare_exported_certs_for_stacks
     else
-        die "Bundle CA absent. Relancez avec --netskope pour exporter les certificats."
+        die "Matériel CA introuvable. Relancez avec --netskope, --discover-tls --force ou une autre source de certificats."
     fi
 }
 
@@ -414,6 +436,7 @@ run_install() {
     reset_report
     ensure_dirs
     load_existing_manifest_entries
+    validate_certificate_source
 
     CERT_EXPORT_DIR="$WORKDIR/certs"
     mkdir -p "$CERT_EXPORT_DIR"
@@ -427,7 +450,6 @@ run_install() {
     if needs_gradle_stack; then
         require_commands keytool
         report_java_environment
-        detect_gradle_jvm || true
         probe_tls_hosts_for_report
     fi
 

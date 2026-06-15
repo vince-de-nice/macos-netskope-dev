@@ -46,6 +46,9 @@ source ~/.zshrc
 # Une stack seule
 ./install.sh --dart --netskope
 
+# Ajouter une stack après une première installation (certificats déjà en cache)
+./install.sh --git --yes
+
 # Documentation d'une stack
 ./install.sh --docs gradle
 

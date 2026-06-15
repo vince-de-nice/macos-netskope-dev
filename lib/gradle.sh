@@ -94,6 +94,9 @@ configure_gradle_properties() {
         [[ -s "$temp_file" ]] && echo
         echo "$MARKER_BEGIN"
         echo "org.gradle.jvmargs=${merged_jvmargs}"
+        echo "systemProp.javax.net.ssl.trustStore=${TRUSTSTORE_FILE}"
+        echo "systemProp.javax.net.ssl.trustStoreType=PKCS12"
+        echo "systemProp.javax.net.ssl.trustStorePassword=${STORE_PASSWORD}"
         echo "$MARKER_END"
         echo
     } > "$WORKDIR/gradle.properties.final"

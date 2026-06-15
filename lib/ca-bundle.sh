@@ -30,6 +30,16 @@ cache_exported_certificates() {
     done
 }
 
+certs_cache_has_pems() {
+    [[ -d "$CERTS_CACHE_DIR" ]] || return 1
+
+    shopt -s nullglob
+    local pems=("$CERTS_CACHE_DIR"/*.pem)
+    shopt -u nullglob
+
+    ((${#pems[@]} > 0))
+}
+
 load_exported_certs_from_cache() {
     local pem alias label
 

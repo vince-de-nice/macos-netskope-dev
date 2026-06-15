@@ -56,6 +56,32 @@ export MND_STORE_PASSWORD_FILE=~/.config/mnd-store-password
 ./install.sh --all --netskope --yes
 ```
 
+## Gradle / Android Studio : PKIX ou JVM incorrecte
+
+| Symptôme | Cause probable | Action |
+|----------|----------------|--------|
+| `PKIX path building failed` sur `./gradlew` | Truststore non appliqué au daemon | `./install.sh --gradle --netskope --yes` puis `cd android && ./gradlew --stop` |
+| Tests TLS OK mais build Android échoue | JVM Gradle ≠ JVM détectée (ex. OpenJDK Homebrew vs JBR) | Relancer install depuis le dossier projet ; optionnel : `export MND_GRADLEW_PATH=./android/gradlew` |
+| `org.gradle.jvmargs` du projet écrase le truststore | `android/gradle.properties` redéfinit la ligne | Les `systemProp.javax.net.ssl.trustStore*` du bloc généré doivent rester présents ; réinstaller la stack Gradle |
+
+Vérifier la JVM utilisée :
+
+```bash
+./install.sh --gradle --netskope --verbose --skip-verify
+cd mon_projet/android && ./gradlew -version
+```
+
+## Ajouter une stack sans ré-exporter les certificats
+
+Après une première installation (`--netskope`, `--discover-tls --force`, etc.), les CA sont conservées dans `~/.gradle/macos-netskope-dev/`. Vous pouvez ajouter des stacks **sans** respecifier la source :
+
+```bash
+./install.sh --dart --yes
+./install.sh --git --node --yes
+```
+
+Le script réutilise le bundle PEM et le cache `certs/*.pem` tant qu'aucun nouvel export n'est nécessaire. Si le bundle est absent ou obsolète, une source de certificats reste obligatoire.
+
 ## Certificat Netskope multiple
 
 ```bash
